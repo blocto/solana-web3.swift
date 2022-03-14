@@ -1,6 +1,6 @@
 # SolanaWeb3
 
-[![CI Status](https://img.shields.io/travis/scottphc/SolanaWeb3.svg?style=flat)](https://travis-ci.org/scottphc/SolanaWeb3)
+[![CI Status](https://img.shields.io/travis/portto/SolanaWeb3.svg?style=flat)](https://travis-ci.org/portto/SolanaWeb3)
 [![Version](https://img.shields.io/cocoapods/v/SolanaWeb3.svg?style=flat)](https://cocoapods.org/pods/SolanaWeb3)
 [![License](https://img.shields.io/cocoapods/l/SolanaWeb3.svg?style=flat)](https://cocoapods.org/pods/SolanaWeb3)
 [![Platform](https://img.shields.io/cocoapods/p/SolanaWeb3.svg?style=flat)](https://cocoapods.org/pods/SolanaWeb3)
@@ -22,7 +22,7 @@ pod 'SolanaWeb3'
 
 ## Author
 
-scottphc, scott.ph.chou@gmail.com
+Scott, scott@portto.com
 
 ## License
 
