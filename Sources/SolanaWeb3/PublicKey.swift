@@ -18,6 +18,9 @@ public struct PublicKey {
             throw Error.invalidPublicKeyInput
         }
         let bytes = Base58.decode(string)
+        if bytes.count != Self.numberOfBytes {
+            throw Error.invalidPublicKeyInput
+        }
         self.bytes = bytes
     }
 
@@ -45,13 +48,28 @@ public struct PublicKey {
 
 }
 
-// MARK: - Equatable
-extension PublicKey: Equatable { }
-
 // MARK: - CustomStringConvertible
 extension PublicKey: CustomStringConvertible {
 
     public var description: String {
         base58
+    }
+}
+
+// MARK: - Equatable
+extension PublicKey: Equatable { }
+
+// MARK: - Codable
+extension PublicKey: Codable {
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(base58)
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let string = try container.decode(String.self)
+        try self.init(string)
     }
 }

@@ -16,15 +16,18 @@ let package = Package(
             targets: ["SolanaWeb3"]),
     ],
     dependencies: [
+        .package(url: "https://github.com/krzyzanowskim/CryptoSwift.git", .upToNextMajor(from: "1.4.3")),
+        .package(name: "TweetNacl", url: "https://github.com/bitmark-inc/tweetnacl-swiftwrap.git", from: "1.1.0")
     ],
     targets: [
         .target(
             name: "SolanaWeb3",
-            resources: [ .process("Resources") ]
+            dependencies: ["CryptoSwift", "TweetNacl"]
         ),
         .testTarget(
             name: "SolanaWeb3Tests",
-            resources: [ .process("Resources") ]
+            dependencies: ["SolanaWeb3"]
         ),
-    ]
+    ],
+    swiftLanguageVersions: [.v5]
 )

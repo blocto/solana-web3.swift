@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import CryptoSwift
 
 private let gf1 = NaclLowLevel.gf([1])
 private let maxSeedLength = 32
@@ -16,7 +17,6 @@ public extension PublicKey {
         seeds: [Data],
         programId: Self
     ) throws -> Self {
-        // construct data
         var data = Data()
         for seed in seeds {
             if seed.count > maxSeedLength {
@@ -27,15 +27,12 @@ public extension PublicKey {
         data.append(programId.data)
         data.append("ProgramDerivedAddress".data(using: .utf8)!)
 
-        // hash it
-        let hash = data.sha256()
-        let publicKeyBytes = Bignum(number: hash.hexString, withBase: 16).data
+        let hash = [UInt8](data.sha256())
 
-        // check it
-        if isOnCurve(publicKeyBytes: publicKeyBytes).toBool() {
+        if isOnCurve(publicKeyBytes: hash) == 1 {
             throw Error.invalidSeeds
         }
-        return try PublicKey(data: publicKeyBytes)
+        return try PublicKey(hash)
     }
 
     static func findProgramAddress(
@@ -89,14 +86,14 @@ public extension PublicKey {
 
         NaclLowLevel.S(&chk, r[0])
         NaclLowLevel.M(&chk, chk, den)
-        if NaclLowLevel.neq25519(chk, num).toBool() {
+        if NaclLowLevel.neq25519(chk, num) == 1 {
             NaclLowLevel.M(&r[0], r[0], NaclLowLevel.I)
         }
 
         NaclLowLevel.S(&chk, r[0])
         NaclLowLevel.M(&chk, chk, den)
 
-        if NaclLowLevel.neq25519(chk, num).toBool() {
+        if NaclLowLevel.neq25519(chk, num) == 1 {
             return 0
         }
         return 1
