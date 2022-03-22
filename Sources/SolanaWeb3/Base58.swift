@@ -11,6 +11,10 @@ public enum Base58 {
 
     private static let base58Alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 
+    public static func encode(_ data: Data) -> String {
+        encode([UInt8](data))
+    }
+
     // Encode
     public static func encode(_ bytes: [UInt8]) -> String {
         var bytes = bytes

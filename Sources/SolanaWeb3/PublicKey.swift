@@ -9,7 +9,7 @@ import Foundation
 
 public struct PublicKey {
 
-    private static let numberOfBytes = 32
+    static let numberOfBytes = 32
 
     public let bytes: [UInt8]
 
@@ -56,6 +56,9 @@ extension PublicKey: CustomStringConvertible {
     }
 }
 
+// MARK: - Hashable
+extension PublicKey: Hashable { }
+
 // MARK: - Equatable
 extension PublicKey: Equatable { }
 
@@ -72,4 +75,20 @@ extension PublicKey: Codable {
         let string = try container.decode(String.self)
         try self.init(string)
     }
+}
+
+extension PublicKey: BufferLayoutProperty {
+
+    public init(buffer: Data, pointer: inout Int) throws {
+        guard buffer.count > pointer else {
+            throw BufferLayoutError.bytesLengthIsNotValid
+        }
+        bytes = Array(buffer[pointer..<pointer+Self.numberOfBytes])
+        pointer += Self.numberOfBytes
+    }
+
+    public func serialize() throws -> Data {
+        data
+    }
+
 }

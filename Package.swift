@@ -17,12 +17,13 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/krzyzanowskim/CryptoSwift.git", .upToNextMajor(from: "1.4.3")),
-        .package(name: "TweetNacl", url: "https://github.com/bitmark-inc/tweetnacl-swiftwrap.git", from: "1.1.0")
+        .package(name: "TweetNacl", url: "https://github.com/bitmark-inc/tweetnacl-swiftwrap.git", from: "1.1.0"),
+        .package(url: "https://github.com/wickwirew/Runtime.git", from: "2.2.2")
     ],
     targets: [
         .target(
             name: "SolanaWeb3",
-            dependencies: ["CryptoSwift", "TweetNacl"]
+            dependencies: ["CryptoSwift", "TweetNacl", "Runtime"]
         ),
         .testTarget(
             name: "SolanaWeb3Tests",

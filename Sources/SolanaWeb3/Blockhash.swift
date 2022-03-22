@@ -7,4 +7,4 @@
 
 import Foundation
 
-typealias Blockhash = String
+public typealias Blockhash = String

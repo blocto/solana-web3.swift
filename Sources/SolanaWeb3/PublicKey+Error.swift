@@ -7,7 +7,7 @@
 
 import Foundation
 
-extension PublicKey {
+public extension PublicKey {
 
     enum Error: Swift.Error {
         case invalidPublicKeyInput
