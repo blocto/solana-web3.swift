@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import CryptoSwift
 
 public struct PublicKey {
 
@@ -38,13 +39,22 @@ public struct PublicKey {
         self.bytes = bytes
     }
 
+    /// Derive a public key from another key, a seed, and a program ID.
+    /// The program ID will also serve as the owner of the public key, giving
+    /// it permission to write data to the account.
+    public init(fromPublicKey: PublicKey, seed: String, programId: PublicKey) throws {
+        var data = Data()
+        data.append(fromPublicKey.data)
+        data.append(seed.data(using: .utf8) ?? Data())
+        data.append(programId.data)
+
+        let hash = data.sha256()
+        self = try PublicKey(hash)
+    }
+
     public var base58: String { Base58.encode(bytes) }
 
     public var data: Data { Data(bytes) }
-
-    public static func createWithSeed() {
-
-    }
 
 }
 

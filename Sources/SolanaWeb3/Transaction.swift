@@ -75,21 +75,31 @@ public struct TransactionInstruction: Equatable {
 }
 
 /// Pair of signature and corresponding public key
-public struct SignaturePubkeyPair {
+public struct SignaturePubkeyPair: Equatable {
     public var signature: Data?
     public let publicKey: PublicKey
+
+    public init(signature: Data?, publicKey: PublicKey) {
+        self.signature = signature
+        self.publicKey = publicKey
+    }
 }
 
 /// Nonce information to be used to build an offline Transaction.
-public struct NonceInformation {
+public struct NonceInformation: Equatable {
     /// The current blockhash stored in the nonce
     public let nonce: Blockhash
     /// AdvanceNonceAccount Instruction
     public let nonceInstruction: TransactionInstruction
+
+    public init(nonce: Blockhash, nonceInstruction: TransactionInstruction) {
+        self.nonce = nonce
+        self.nonceInstruction = nonceInstruction
+    }
 }
 
 /// Transaction
-public struct Transaction {
+public struct Transaction: Equatable {
 
     /// Signatures for the transaction.  Typically created by invoking the
     /// `sign()` method
@@ -193,19 +203,29 @@ public struct Transaction {
         self.instructions = instructions
     }
 
-    /// Add one or more instructions to this Transaction
+    /// Add one instruction to this Transaction
+    public mutating func add(_ item: Transaction) {
+        instructions.append(contentsOf: item.instructions)
+    }
+
+    /// Add instructions to this Transaction
     public mutating func add(_ items: [Transaction]) {
         items.forEach {
             instructions.append(contentsOf: $0.instructions)
         }
     }
 
-    /// Add one or more instructions to this Transaction
+    /// Add one instruction to this Transaction
+    public mutating func add(_ item: TransactionInstruction) {
+        instructions.append(item)
+    }
+
+    /// Add instructions to this Transaction
     public mutating func add(_ items: [TransactionInstruction]) {
         instructions.append(contentsOf: items)
     }
 
-    /// Add one or more instructions to this Transaction
+    /// Add instructions to this Transaction
     public mutating func add(keys: [AccountMeta], programId: PublicKey, data: Data? = nil) {
         let instruction = TransactionInstruction(keys: keys, programId: programId, data: data)
         instructions.append(instruction)
@@ -372,7 +392,6 @@ public struct Transaction {
     /// @deprecated Deprecated. Only the fee payer needs to be
     /// specified and it can be set in the Transaction constructor or with the
     /// `feePayer` property.
-    // TODO: not finished
     @available(*, deprecated, message: "Deprecated")
     public mutating func setSigners(_ signers: [PublicKey]) throws {
         guard signers.count > 0 else {
@@ -437,6 +456,10 @@ public struct Transaction {
         try self.sign(signers.map { $0.keypair })
     }
 
+    public mutating func sign(_ signer: Keypair) throws {
+        try self.sign([signer.keypair])
+    }
+
     /// Partially sign a transaction with the specified accounts. All accounts must
     /// correspond to either the fee payer or a signer account in the transaction
     /// instructions.
@@ -464,12 +487,24 @@ public struct Transaction {
         try partialSign(message: message, signers: signers)
     }
 
+    public mutating func partialSign(signers: [Keypair]) throws {
+        try partialSign(signers: try signers.map {
+            Signer(publicKey: try $0.publicKey, secretKey: $0.secretKey)
+        })
+    }
+
     private mutating func partialSign(message: Message, signers: [Signer]) throws {
         let signData = message.serialize()
         try signers.forEach { signer in
             let signature = try NaclSign.signDetached(message: signData, secretKey: signer.secretKey)
             try _addSignature(publicKey: signer.publicKey, signature: signature)
         }
+    }
+
+    public mutating func partialSign(message: Message, signers: [Keypair]) throws {
+        try partialSign(message: message, signers: try signers.map {
+            Signer(publicKey: try $0.publicKey, secretKey: $0.secretKey)
+        })
     }
 
     /// Add an externally created signature to a transaction. The public key
@@ -517,7 +552,7 @@ public struct Transaction {
         let signData = try serializeMessage()
 
         if config.verifySignatures,
-           try verifySignatures(signData: signData, requireAllSignatures: true) == false {
+           try verifySignatures(signData: signData, requireAllSignatures: config.requireAllSignatures) == false {
             throw Error.signatureVerificationFailed
         }
 

@@ -8,7 +8,7 @@
 import Foundation
 
 /// List of instructions to be processed atomically
-public struct Message {
+public struct Message: Equatable {
 
     public let header: MessageHeader
     public let accountKeys: [PublicKey]
@@ -160,7 +160,7 @@ public extension Message {
 }
 
 /// The message header, identifying signed and read-only account
-public struct MessageHeader: Decodable {
+public struct MessageHeader: Equatable, Decodable {
 
     /// The number of signatures required for this message to be considered valid. The
     /// signatures must match the first `numRequiredSignatures` of `accountKeys`.
@@ -178,7 +178,7 @@ public struct MessageHeader: Decodable {
 }
 
 /// An instruction to execute by a program
-public struct CompiledInstruction {
+public struct CompiledInstruction: Equatable {
 
     /// Index into the transaction keys array indicating the program account that executes this instruction
     public let programIdIndex: UInt8

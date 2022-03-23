@@ -108,7 +108,7 @@ final class TransactionTests: XCTestCase {
             ],
             programId: programId)
 
-        try transaction.sign([payer])
+        try transaction.sign(payer)
 
         let message = try transaction.compileMessage()
         XCTAssertEqual(message.accountKeys[0], try payer.publicKey)
@@ -144,54 +144,157 @@ final class TransactionTests: XCTestCase {
         let account1 = try Keypair()
         let account2 = try Keypair()
         let recentBlockhash = try account1.publicKey.base58 // Fake recentBlockhash
+        let transfer = try SystemProgram.transfer(
+            fromPublicKey: try account1.publicKey,
+            toPublicKey: try account2.publicKey,
+            lamports: 123)
+
+        var transaction = Transaction(recentBlockhash: recentBlockhash)
+        transaction.add(transfer)
+        try transaction.sign([account1, account2])
+
+        var partialTransaction = Transaction(recentBlockhash: recentBlockhash)
+        partialTransaction.add(transfer)
+        try partialTransaction.setSigners([try account1.publicKey, try account2.publicKey])
+        XCTAssertNil(partialTransaction.signatures[0].signature)
+        XCTAssertNil(partialTransaction.signatures[1].signature)
+
+        try partialTransaction.partialSign(signers: [account1])
+        XCTAssertNotNil(partialTransaction.signatures[0].signature)
+        XCTAssertNil(partialTransaction.signatures[1].signature)
+
+        XCTAssertThrowsError(try partialTransaction.serialize())
+        XCTAssertNoThrow(try partialTransaction.serialize(config: .init(requireAllSignatures: false)))
+
+        try partialTransaction.partialSign(signers: [account2])
+
+        XCTAssertNotNil(partialTransaction.signatures[0].signature)
+        XCTAssertNotNil(partialTransaction.signatures[1].signature)
+
+        XCTAssertNoThrow(try partialTransaction.serialize())
+
+        XCTAssertEqual(partialTransaction, transaction)
+
+        XCTAssertTrue(partialTransaction.signatures[0].signature != nil)
+
+        var signature = partialTransaction.signatures[0].signature
+        signature?[0] = 0
+        let keypair = SignaturePubkeyPair(
+            signature: signature,
+            publicKey: partialTransaction.signatures[0].publicKey)
+        partialTransaction.signatures[0] = keypair
+        XCTAssertThrowsError(try partialTransaction.serialize(
+            config: .init(requireAllSignatures: false)))
+        XCTAssertNoThrow(try partialTransaction.serialize(
+            config: .init(requireAllSignatures: false, verifySignatures: false)))
     }
-//    it('partialSign', () => {
-//        const account1 = Keypair.generate();
-//        const account2 = Keypair.generate();
-//        const recentBlockhash = account1.publicKey.toBase58(); // Fake recentBlockhash
-//        const transfer = SystemProgram.transfer({
-//          fromPubkey: account1.publicKey,
-//          toPubkey: account2.publicKey,
-//          lamports: 123,
-//        });
-//
-//        const transaction = new Transaction({recentBlockhash}).add(transfer);
-//        transaction.sign(account1, account2);
-//
-//        const partialTransaction = new Transaction({recentBlockhash}).add(transfer);
-//        partialTransaction.setSigners(account1.publicKey, account2.publicKey);
-//        expect(partialTransaction.signatures[0].signature).to.be.null;
-//        expect(partialTransaction.signatures[1].signature).to.be.null;
-//
-//        partialTransaction.partialSign(account1);
-//        expect(partialTransaction.signatures[0].signature).not.to.be.null;
-//        expect(partialTransaction.signatures[1].signature).to.be.null;
-//
-//        expect(() => partialTransaction.serialize()).to.throw();
-//        expect(() =>
-//          partialTransaction.serialize({requireAllSignatures: false}),
-//        ).not.to.throw();
-//
-//        partialTransaction.partialSign(account2);
-//
-//        expect(partialTransaction.signatures[0].signature).not.to.be.null;
-//        expect(partialTransaction.signatures[1].signature).not.to.be.null;
-//
-//        expect(() => partialTransaction.serialize()).not.to.throw();
-//
-//        expect(partialTransaction).to.eql(transaction);
-//
-//        invariant(partialTransaction.signatures[0].signature);
-//        partialTransaction.signatures[0].signature[0] = 0;
-//        expect(() =>
-//          partialTransaction.serialize({requireAllSignatures: false}),
-//        ).to.throw();
-//        expect(() =>
-//          partialTransaction.serialize({
-//            verifySignatures: false,
-//            requireAllSignatures: false,
-//          }),
-//        ).not.to.throw();
-//      });
+
+    func testDedupeSetSigners() throws {
+        let payer = try Keypair()
+        let duplicate1 = payer
+        let duplicate2 = payer
+        let recentBlockhash = try Keypair().publicKey.base58
+        let programId = try Keypair().publicKey
+
+        var transaction = Transaction(recentBlockhash: recentBlockhash)
+        transaction.add(
+            keys: [
+                AccountMeta(publicKey: try duplicate1.publicKey, isSigner: true, isWritable: true),
+                AccountMeta(publicKey: try payer.publicKey, isSigner: false, isWritable: true),
+                AccountMeta(publicKey: try duplicate2.publicKey, isSigner: true, isWritable: false)
+            ],
+            programId: programId)
+
+        try transaction.setSigners([
+            try payer.publicKey,
+            try duplicate1.publicKey,
+            try duplicate2.publicKey
+        ])
+
+        XCTAssertEqual(transaction.signatures.count, 1)
+        XCTAssertEqual(transaction.signatures[0].publicKey, try payer.publicKey)
+
+        let message = try transaction.compileMessage()
+        XCTAssertEqual(message.accountKeys[0], try payer.publicKey)
+        XCTAssertEqual(message.header.numRequiredSignatures, 1)
+        XCTAssertEqual(message.header.numReadonlySignedAccounts, 0)
+        XCTAssertEqual(message.header.numReadonlyUnsignedAccounts, 1)
+    }
+
+    func testDedupeSign() throws {
+        let payer = try Keypair()
+        let duplicate1 = payer
+        let duplicate2 = payer
+        let recentBlockhash = try Keypair().publicKey.base58
+        let programId = try Keypair().publicKey
+
+        var transaction = Transaction(recentBlockhash: recentBlockhash)
+        transaction.add(
+            keys: [
+                AccountMeta(publicKey: try duplicate1.publicKey, isSigner: true, isWritable: true),
+                AccountMeta(publicKey: try payer.publicKey, isSigner: false, isWritable: true),
+                AccountMeta(publicKey: try duplicate2.publicKey, isSigner: true, isWritable: false)
+            ],
+            programId: programId)
+
+        try transaction.sign([payer, duplicate1, duplicate2])
+
+        XCTAssertEqual(transaction.signatures.count, 1)
+        XCTAssertEqual(transaction.signatures[0].publicKey, try payer.publicKey)
+
+        let message = try transaction.compileMessage()
+        XCTAssertEqual(message.accountKeys[0], try payer.publicKey)
+        XCTAssertEqual(message.header.numRequiredSignatures, 1)
+        XCTAssertEqual(message.header.numReadonlySignedAccounts, 0)
+        XCTAssertEqual(message.header.numReadonlyUnsignedAccounts, 1)
+    }
+
+    func testTransferSignatures() throws {
+        let account1 = try Keypair()
+        let account2 = try Keypair()
+        let recentBlockhash = try Keypair().publicKey.base58
+        let transfer1 = try SystemProgram.transfer(
+            fromPublicKey: try account1.publicKey,
+            toPublicKey: try account2.publicKey,
+            lamports: 123)
+        let transfer2 = try SystemProgram.transfer(
+            fromPublicKey: try account2.publicKey,
+            toPublicKey: try account1.publicKey,
+            lamports: 123)
+
+        var orgTransaction = Transaction(recentBlockhash: recentBlockhash)
+        orgTransaction.add([transfer1, transfer2])
+        try orgTransaction.sign([account1, account2])
+
+        var newTransaction = Transaction(
+            recentBlockhash: orgTransaction.recentBlockhash,
+            signatures: orgTransaction.signatures)
+        newTransaction.add([transfer1, transfer2])
+
+        XCTAssertEqual(newTransaction, orgTransaction)
+    }
+
+    func testDedupSignatures() throws {
+        let account1 = try Keypair()
+        let account2 = try Keypair()
+        let recentBlockhash = try account1.publicKey.base58 // Fake recentBlockhash
+        let transfer1 = try SystemProgram.transfer(
+            fromPublicKey: try account1.publicKey,
+            toPublicKey: try account2.publicKey,
+            lamports: 123)
+        let transfer2 = try SystemProgram.transfer(
+            fromPublicKey: try account1.publicKey,
+            toPublicKey: try account2.publicKey,
+            lamports: 123)
+
+        var orgTransaction = Transaction(recentBlockhash: recentBlockhash)
+        orgTransaction.add([transfer1, transfer2])
+
+        try orgTransaction.sign(account1)
+    }
+
+    func testUseNonce() throws {
+        
+    }
 
 }

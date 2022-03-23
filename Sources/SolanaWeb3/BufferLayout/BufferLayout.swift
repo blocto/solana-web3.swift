@@ -12,9 +12,29 @@ import Runtime
 public protocol BufferLayout: BufferLayoutProperty {
     static func injectOtherProperties(typeInfo: TypeInfo, currentInstance: inout Self) throws
     static var excludedPropertyNames: [String] { get }
+    static var span: UInt64 { get throws }
 }
 
 public extension BufferLayout {
+
+    static var span: UInt64 {
+        get throws {
+            let info = try typeInfo(of: Self.self)
+
+            var span: UInt64 = 0
+            for property in info.properties {
+                if Self.excludedPropertyNames.contains(property.name) {
+                    continue
+                }
+
+                let instanceInfo = try typeInfo(of: property.type)
+                if let t = instanceInfo.type as? Self.Type {
+                    span += try t.span
+                }
+            }
+            return span
+        }
+    }
 
     init(buffer: Data, pointer: inout Int) throws {
         let info = try typeInfo(of: Self.self)

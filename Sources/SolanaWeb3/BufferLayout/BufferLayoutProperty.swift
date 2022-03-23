@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import Runtime
 
 public protocol BufferLayoutSerializable {
     func serialize() throws -> Data
