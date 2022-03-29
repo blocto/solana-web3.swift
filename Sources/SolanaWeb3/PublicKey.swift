@@ -35,6 +35,12 @@ public struct PublicKey {
         self.bytes = [UInt8](data)
     }
 
+    public init(_ int8: UInt8) throws {
+        var data = Data(repeating: 0, count: 31)
+        data.append(int8)
+        try self.init(data)
+    }
+
     public init(_ bytes: [UInt8]) throws {
         guard bytes.count <= PublicKey.numberOfBytes else {
             throw Error.invalidPublicKeyInput

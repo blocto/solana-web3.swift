@@ -139,32 +139,33 @@ public struct Transaction: Equatable {
     public init(data: Data) throws {
         var data = data
         let signatureCount = Shortvec.decodeLength(data: &data)
-        var signatures = [Data]()
+        var signatures = [String]()
         for index in 0..<signatureCount {
             let startIndex = data.startIndex + index * signatureLength
             let endIndex = startIndex + signatureLength
             if endIndex < data.endIndex {
                 let signature = data[startIndex..<endIndex]
-                signatures.append(signature)
+                signatures.append(Base58.encode(signature))
             } else {
                 throw Error.signatureHasInvalidLength
             }
         }
 
         let startIndex = data.startIndex + signatureCount * signatureLength
+        let messageData: Data
         if startIndex < data.endIndex {
-            data = data[startIndex...]
+            messageData = data[startIndex...]
         } else {
             throw Error.signatureHasInvalidLength
         }
 
         self.init(
-            message: try Message(data: data),
+            message: try Message(data: messageData),
             signatures: signatures)
     }
 
     /// Populate Transaction object from message and signatures
-    public init(message: Message, signatures: [Data]) {
+    public init(message: Message, signatures: [String]) {
         self.recentBlockhash = message.recentBlockhash
         if message.header.numRequiredSignatures > 0 {
             self.feePayer = message.accountKeys.first
@@ -173,7 +174,7 @@ public struct Transaction: Equatable {
         var signaturePubkeyPairs = [SignaturePubkeyPair]()
         for (index, signature) in signatures.enumerated() {
             let sigaturePublicKeyPair = SignaturePubkeyPair(
-                signature: signature == defaultSignature ? nil : signature,
+                signature: signature == Base58.encode(defaultSignature) ? nil : Data(Base58.decode(signature)),
                 publicKey: message.accountKeys[index])
             signaturePubkeyPairs.append(sigaturePublicKeyPair)
         }
@@ -270,7 +271,7 @@ public struct Transaction: Equatable {
         accountMetas.sort { (x, y) -> Bool in
             if x.isSigner != y.isSigner { return x.isSigner }
             if x.isWritable != y.isWritable { return x.isWritable }
-            return false
+            return x.publicKey.base58.localizedCompare(y.publicKey.base58) == .orderedAscending
         }
 
         // Cull duplicate account metas
@@ -374,6 +375,7 @@ public struct Transaction: Equatable {
     }
 
     /// Get a buffer of the Transaction data that need to be covered by signatures
+    @discardableResult
     public mutating func serializeMessage() throws -> Data {
         try compile().serialize()
     }
@@ -548,6 +550,7 @@ public struct Transaction: Equatable {
         return true
     }
 
+    @discardableResult
     public mutating func serialize(config: SerializeConfig = SerializeConfig()) throws -> Data {
         let signData = try serializeMessage()
 
@@ -573,6 +576,8 @@ public struct Transaction: Equatable {
                     throw Error.signatureHasInvalidLength
                 }
                 wireTransaction.append(signature)
+            } else {
+                wireTransaction.append(Data(repeating: 0, count: signatureLength))
             }
         }
         wireTransaction.append(signData)

@@ -82,10 +82,12 @@ public struct Message: Equatable {
             instructions: instructions)
     }
 
-    public init(header: MessageHeader,
-         accountKeys: [PublicKey],
-         recentBlockhash: Blockhash,
-         instructions: [CompiledInstruction]) {
+    public init(
+        header: MessageHeader,
+        accountKeys: [PublicKey],
+        recentBlockhash: Blockhash,
+        instructions: [CompiledInstruction]
+    ) {
         self.header = header
         self.accountKeys = accountKeys
         self.recentBlockhash = recentBlockhash
@@ -95,10 +97,12 @@ public struct Message: Equatable {
         }
     }
 
-    public init(header: MessageHeader,
-         accountKeys: [String],
-         recentBlockhash: Blockhash,
-         instructions: [CompiledInstruction]) throws {
+    public init(
+        header: MessageHeader,
+        accountKeys: [String],
+        recentBlockhash: Blockhash,
+        instructions: [CompiledInstruction]
+    ) throws {
         let accountKeys = try accountKeys.map { try PublicKey($0) }
         self.init(header: header, accountKeys: accountKeys, recentBlockhash: recentBlockhash, instructions: instructions)
     }
@@ -177,6 +181,16 @@ public struct MessageHeader: Equatable, Decodable {
     public var bytes: [UInt8] {
         [numRequiredSignatures, numReadonlySignedAccounts, numReadonlyUnsignedAccounts]
     }
+
+    public init(
+        numRequiredSignatures: UInt8,
+        numReadonlySignedAccounts: UInt8,
+        numReadonlyUnsignedAccounts: UInt8
+    ) {
+        self.numRequiredSignatures = numRequiredSignatures
+        self.numReadonlySignedAccounts = numReadonlySignedAccounts
+        self.numReadonlyUnsignedAccounts = numReadonlyUnsignedAccounts
+    }
 }
 
 /// An instruction to execute by a program
@@ -190,4 +204,14 @@ public struct CompiledInstruction: Equatable {
 
     /// The program input data encoded as base 58
     public let data: String
+
+    public init(
+        programIdIndex: UInt8,
+        accounts: [UInt8],
+        data: String
+    ) {
+        self.programIdIndex = programIdIndex
+        self.accounts = accounts
+        self.data = data
+    }
 }

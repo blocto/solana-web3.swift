@@ -8,6 +8,7 @@
 import XCTest
 import SolanaWeb3
 import CryptoSwift
+import TweetNacl
 
 final class TransactionTests: XCTestCase {
 
@@ -356,6 +357,170 @@ final class TransactionTests: XCTestCase {
         XCTAssertEqual(tx.instructions, expectedTransaction.instructions)
         XCTAssertEqual(tx.recentBlockhash, expectedTransaction.recentBlockhash)
         XCTAssertEqual(wireTransaction, try expectedTransaction.serialize())
+    }
+
+    func testPopulateTransaction() throws {
+        let recentBlockhash = try PublicKey(1).description
+        let message = try Message(
+            header: MessageHeader(
+                numRequiredSignatures: 2,
+                numReadonlySignedAccounts: 0,
+                numReadonlyUnsignedAccounts: 3),
+            accountKeys: [
+                try PublicKey(1).description,
+                try PublicKey(2).description,
+                try PublicKey(3).description,
+                try PublicKey(4).description,
+                try PublicKey(5).description
+            ],
+            recentBlockhash: recentBlockhash,
+            instructions: [
+                CompiledInstruction(
+                    programIdIndex: 4,
+                    accounts: [1, 2, 3],
+                    data: Base58.encode(Data(repeating: 9, count: 5)))
+            ])
+
+        let signatures = [
+            Base58.encode(Data(repeating: 1, count: 64)),
+            Base58.encode(Data(repeating: 2, count: 64))
+        ]
+
+        let transaction = Transaction(message: message, signatures: signatures)
+        XCTAssertEqual(transaction.instructions.count, 1)
+        XCTAssertEqual(transaction.signatures.count, 2)
+        XCTAssertEqual(transaction.recentBlockhash, recentBlockhash)
+    }
+
+    func testSerializeUnsignedTransaction() throws {
+        let sender = try Keypair(seed: Data(repeating: 8, count: 32)) // Arbitrary known account
+        let recentBlockhash = "EETubP5AKHgjPAhzPAFcb8BAY1hMH639CWCFTqi3hq1k" // Arbitrary known recentBlockhash
+        let recipient = try PublicKey("J3dxNj7nDRRqRRXuEMynDG57DkZK4jYRuv3Garmb1i99") // Arbitrary known public key
+        let transfer = try SystemProgram.transfer(
+            fromPublicKey: try sender.publicKey,
+            toPublicKey: recipient,
+            lamports: 49)
+        var expectedTransaction = Transaction(recentBlockhash: recentBlockhash)
+        expectedTransaction.add(transfer)
+
+        // Empty signature array fails.
+        XCTAssertEqual(expectedTransaction.signatures.count, 0)
+        XCTAssertThrowsError(try expectedTransaction.serialize())
+        XCTAssertThrowsError(try expectedTransaction.serialize()) { error in
+            XCTAssertEqual(error as? Transaction.Error, .feePayerRequired)
+        }
+        XCTAssertThrowsError(try expectedTransaction.serialize(config: .init(verifySignatures: true))) { error in
+            XCTAssertEqual(error as? Transaction.Error, .feePayerRequired)
+        }
+        XCTAssertThrowsError(try expectedTransaction.serializeMessage()) { error in
+            XCTAssertEqual(error as? Transaction.Error, .feePayerRequired)
+        }
+
+        expectedTransaction.feePayer = try sender.publicKey
+
+        // Transactions with missing signatures will fail sigverify.
+        XCTAssertThrowsError(try expectedTransaction.serialize()) { error in
+            XCTAssertEqual(error as? Transaction.Error, .signatureVerificationFailed)
+        }
+
+        // Serializing without signatures is allowed if sigverify disabled.
+        try expectedTransaction.serialize(config: .init(verifySignatures: false))
+
+        // Serializing the message is allowed when signature array has null signatures
+        try expectedTransaction.serializeMessage()
+
+        expectedTransaction.feePayer = nil
+        try expectedTransaction.setSigners([try sender.publicKey])
+        XCTAssertEqual(expectedTransaction.signatures.count, 1)
+
+        // Transactions with missing signatures will fail sigverify.
+        XCTAssertThrowsError(try expectedTransaction.serialize()) { error in
+            XCTAssertEqual(error as? Transaction.Error, .signatureVerificationFailed)
+        }
+
+        // Serializing without signatures is allowed if sigverify disabled.
+        try expectedTransaction.serialize(config: .init(verifySignatures: false))
+
+        // Serializing the message is allowed when signature array has null signatures
+        try expectedTransaction.serializeMessage()
+
+        let expectedSerializationWithNoSignatures = Data(
+            base64Encoded: "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" +
+            "AAAAAAAAAAAAAAAAAAABAAEDE5j2LG0aRXxRumpLXz29L2n8qTIWIY3ImX5Ba9F9k8r9" +
+            "Q5/Mtmcn8onFxt47xKj+XdXXd3C8j/FcPu7csUrz/AAAAAAAAAAAAAAAAAAAAAAAAAAA" +
+            "AAAAAAAAAAAAAAAAxJrndgN4IFTxep3s6kO0ROug7bEsbx0xxuDkqEvwUusBAgIAAQwC" +
+            "AAAAMQAAAAAAAAA=")!
+        XCTAssertEqual(
+            try expectedTransaction.serialize(config: .init(requireAllSignatures: false)),
+            expectedSerializationWithNoSignatures)
+
+        // Properly signed transaction succeeds
+        try expectedTransaction.partialSign(signers: [sender])
+        XCTAssertEqual(expectedTransaction.signatures.count, 1)
+        let expectedSerialization = Data(
+            base64Encoded: "AVuErQHaXv0SG0/PchunfxHKt8wMRfMZzqV0tkC5qO6owYxWU2v871AoWywGoFQr4z+q/7mE8lIufNl/" +
+            "kxj+nQ0BAAEDE5j2LG0aRXxRumpLXz29L2n8qTIWIY3ImX5Ba9F9k8r9Q5/Mtmcn8onFxt47xKj+XdXX" +
+            "d3C8j/FcPu7csUrz/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAxJrndgN4IFTxep3s6kO0" +
+            "ROug7bEsbx0xxuDkqEvwUusBAgIAAQwCAAAAMQAAAAAAAAA=")
+        XCTAssertEqual(try expectedTransaction.serialize(), expectedSerialization)
+        XCTAssertEqual(expectedTransaction.signatures.count, 1)
+    }
+
+    func testExternallySignedStakeDelegate() throws {
+        let authority = try Keypair(seed: Data(repeating: 1, count: 32))
+        let stake = try PublicKey(2)
+        let recentBlockhash = try PublicKey(3).serialize()
+        let vote = try PublicKey(4)
+        var tx = try StakeProgram.delegate(
+            stakePublicKey: stake,
+            authorizedPublicKey: try authority.publicKey,
+            votePublicKey: vote)
+        let from = authority
+        tx.recentBlockhash = Base58.encode(recentBlockhash)
+        tx.feePayer = try from.publicKey
+        let txData = try tx.serializeMessage()
+        let signature = try NaclSign.signDetached(message: txData, secretKey: from.secretKey)
+        try tx.addSignature(publicKey: try from.publicKey, signature: signature)
+        XCTAssertEqual(try tx.verifySignatures(), true)
+    }
+
+    func testCanSerializeDeserializeAndReserializeWithAPartialSigner() throws {
+        let signer = try Keypair(seed: Data(repeating: 1, count: 32))
+        let acc0Writable = try Keypair(seed: Data(repeating: 2, count: 32))
+        let acc1Writable = try Keypair(seed: Data(repeating: 3, count: 32))
+        let acc2Writable = try Keypair(seed: Data(repeating: 4, count: 32))
+        let programId = try Keypair(seed: Data(repeating: 5, count: 32))
+
+        var t0 = Transaction(
+            recentBlockhash: "HZaTsZuhN1aaz9WuuimCFMyH7wJ5xiyMUHFCnZSMyguH",
+            feePayer: try signer.publicKey)
+        t0.add(TransactionInstruction(
+            keys: [
+                AccountMeta(publicKey: try signer.publicKey, isSigner: true, isWritable: true),
+                AccountMeta(publicKey: try acc0Writable.publicKey, isSigner: false, isWritable: true)
+            ],
+            programId: try programId.publicKey))
+        t0.add(TransactionInstruction(
+            keys: [
+                AccountMeta(publicKey: try acc1Writable.publicKey, isSigner: false, isWritable: false)
+            ],
+            programId: try programId.publicKey))
+        t0.add(TransactionInstruction(
+            keys: [
+                AccountMeta(publicKey: try acc2Writable.publicKey, isSigner: false, isWritable: true)
+            ],
+            programId: try programId.publicKey))
+        t0.add(TransactionInstruction(
+            keys: [
+                AccountMeta(publicKey: try signer.publicKey, isSigner: true, isWritable: true),
+                AccountMeta(publicKey: try acc0Writable.publicKey, isSigner: false, isWritable: false),
+                AccountMeta(publicKey: try acc2Writable.publicKey, isSigner: false, isWritable: false),
+                AccountMeta(publicKey: try acc1Writable.publicKey, isSigner: false, isWritable: true)
+            ],
+            programId: try programId.publicKey))
+        try t0.partialSign(signers: [signer])
+        var t1 = try Transaction(data: try t0.serialize())
+        try t1.serialize()
     }
 
 }
