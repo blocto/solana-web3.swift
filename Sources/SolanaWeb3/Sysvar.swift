@@ -9,7 +9,7 @@ import Foundation
 
 public enum Sysvar {
 
-    public static let clickPublicKey = try! PublicKey("SysvarC1ock11111111111111111111111111111111")
+    public static let clockPublicKey = try! PublicKey("SysvarC1ock11111111111111111111111111111111")
 
     public static let epochSchedulePublicKey = try! PublicKey("SysvarEpochSchedu1e111111111111111111111111")
 

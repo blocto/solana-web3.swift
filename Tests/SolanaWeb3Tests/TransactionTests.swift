@@ -7,6 +7,7 @@
 
 import XCTest
 import SolanaWeb3
+import CryptoSwift
 
 final class TransactionTests: XCTestCase {
 
@@ -294,7 +295,67 @@ final class TransactionTests: XCTestCase {
     }
 
     func testUseNonce() throws {
-        
+        let account1 = try Keypair()
+        let account2 = try Keypair()
+        let nonceAccount = try Keypair()
+        let nonce = try account2.publicKey.base58
+        let nonceInfo = NonceInformation(
+            nonce: nonce,
+            nonceInstruction: try SystemProgram.nonceAdvance(
+                noncePublicKey: try nonceAccount.publicKey,
+                authorizedPublicKey: try account1.publicKey))
+
+        var transferTransaction = Transaction(nonceInfo: nonceInfo)
+        transferTransaction.add(try SystemProgram.transfer(
+            fromPublicKey: try account1.publicKey,
+            toPublicKey: try account2.publicKey,
+            lamports: 123))
+        try transferTransaction.sign(account1)
+
+        var expectedData = Data()
+        expectedData.append(contentsOf: [4, 0, 0, 0])
+
+        XCTAssertEqual(transferTransaction.instructions.count, 2)
+        XCTAssertEqual(transferTransaction.instructions[0].programId, SystemProgram.programId)
+        XCTAssertEqual(transferTransaction.instructions[0].data, expectedData)
+        XCTAssertEqual(transferTransaction.recentBlockhash, nonce)
+
+        let stakeAccount = try Keypair()
+        let voteAccount = try Keypair()
+        var stakeTransaction = Transaction(nonceInfo: nonceInfo)
+        stakeTransaction.add(try StakeProgram.delegate(
+            stakePublicKey: try stakeAccount.publicKey,
+            authorizedPublicKey: try account1.publicKey,
+            votePublicKey: try voteAccount.publicKey))
+        try stakeTransaction.sign(account1)
+
+        XCTAssertEqual(stakeTransaction.instructions.count, 2)
+        XCTAssertEqual(stakeTransaction.instructions[0].programId, SystemProgram.programId)
+        XCTAssertEqual(stakeTransaction.instructions[0].data, expectedData)
+        XCTAssertEqual(stakeTransaction.recentBlockhash, nonce)
+    }
+
+    func testParseWireFormatAndSerialize() throws {
+        let sender = try Keypair(seed: Data(repeating: 8, count: 32)) // Arbitrary known account
+        let recentBlockhash = "EETubP5AKHgjPAhzPAFcb8BAY1hMH639CWCFTqi3hq1k" // Arbitrary known recentBlockhash
+        let recipient = try PublicKey("J3dxNj7nDRRqRRXuEMynDG57DkZK4jYRuv3Garmb1i99") // Arbitrary known public key
+        let transfer = try SystemProgram.transfer(
+            fromPublicKey: try sender.publicKey,
+            toPublicKey: recipient,
+            lamports: 49)
+        var expectedTransaction = Transaction(recentBlockhash: recentBlockhash, feePayer: try sender.publicKey)
+        expectedTransaction.add(transfer)
+        try expectedTransaction.sign(sender)
+
+        let wireTransaction = Data(base64Encoded: "AVuErQHaXv0SG0/PchunfxHKt8wMRfMZzqV0tkC5qO6owYxWU2v871AoWywGoFQr4z+q/7mE8lIufNl/kxj+nQ0BAAEDE5j2LG0aRXxRumpLXz29L2n8qTIWIY3ImX5Ba9F9k8r9Q5/Mtmcn8onFxt47xKj+XdXXd3C8j/FcPu7csUrz/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAxJrndgN4IFTxep3s6kO0ROug7bEsbx0xxuDkqEvwUusBAgIAAQwCAAAAMQAAAAAAAAA=")!
+        let tx = try Transaction(data: wireTransaction)
+
+        XCTAssertEqual(tx, expectedTransaction)
+        XCTAssertEqual(tx.signatures[0].signature?.bytes, expectedTransaction.signatures[0].signature?.bytes)
+        XCTAssertEqual(tx.feePayer, expectedTransaction.feePayer)
+        XCTAssertEqual(tx.instructions, expectedTransaction.instructions)
+        XCTAssertEqual(tx.recentBlockhash, expectedTransaction.recentBlockhash)
+        XCTAssertEqual(wireTransaction, try expectedTransaction.serialize())
     }
 
 }

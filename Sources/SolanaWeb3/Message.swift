@@ -34,19 +34,19 @@ public struct Message: Equatable {
         let accountCount = Shortvec.decodeLength(data: &data)
         var accountKeys = [String]()
         for index in 0..<accountCount {
-            let startIndex = index * PublicKey.numberOfBytes
+            let startIndex = data.startIndex + index * PublicKey.numberOfBytes
             let endIndex = startIndex + PublicKey.numberOfBytes
-            if endIndex < data.count {
+            if endIndex < data.endIndex {
                 accountKeys.append(Base58.encode(data[startIndex..<endIndex]))
             } else {
                 throw Error.invalidInput
             }
         }
 
-        let startIndex = accountCount * PublicKey.numberOfBytes
+        let startIndex = data.startIndex + accountCount * PublicKey.numberOfBytes
         let endIndex = startIndex + PublicKey.numberOfBytes
         let recentBlockhash: Data
-        if endIndex < data.count {
+        if endIndex < data.endIndex {
             recentBlockhash = data[startIndex..<endIndex]
         } else {
             throw Error.invalidInput
@@ -61,11 +61,11 @@ public struct Message: Equatable {
             }
 
             let accountCount = Shortvec.decodeLength(data: &data)
-            let accounts = data[0..<accountCount]
-            data = data[accountCount...]
+            let accounts = data[data.startIndex..<data.startIndex + accountCount]
+            data = data[(data.startIndex + accountCount)...]
             let dataLength = Shortvec.decodeLength(data: &data)
-            let dataBase58 = Base58.encode(data[0..<dataLength])
-            data = data[dataLength...]
+            let dataBase58 = Base58.encode(data[data.startIndex..<data.startIndex + dataLength])
+            data = data[(data.startIndex + dataLength)...]
             instructions.append(CompiledInstruction(
                 programIdIndex: programIdIndex,
                 accounts: [UInt8](accounts),
@@ -139,12 +139,14 @@ public struct Message: Equatable {
         accountKeys.forEach { data.append($0.data) }
         data.append(contentsOf: Base58.decode(recentBlockhash))
 
+        data.append(contentsOf: Shortvec.encodeLength(instructions.count))
         instructions.forEach { instruction in
+            let decodedData = Base58.decode(instruction.data)
             data.append(instruction.programIdIndex)
             data.append(Shortvec.encodeLength(instruction.accounts.count))
             data.append(contentsOf: instruction.accounts)
-            data.append(Shortvec.encodeLength(instruction.data.count))
-            data.append(contentsOf: Base58.decode(instruction.data))
+            data.append(Shortvec.encodeLength(decodedData.count))
+            data.append(contentsOf: decodedData)
         }
 
         return data
@@ -154,7 +156,7 @@ public struct Message: Equatable {
 // MARK: - Error
 public extension Message {
 
-    public enum Error: Swift.Error {
+    enum Error: Swift.Error {
         case invalidInput
     }
 }

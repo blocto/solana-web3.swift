@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct SystemProgram {
+public enum SystemProgram {
 
     /// Public key that identifies the System program
     public static let programId = try! PublicKey("11111111111111111111111111111111")
@@ -396,7 +396,7 @@ public enum SystemInstructionLayout {
         case transferWithSeed = 11
 
         public init(buffer: Data, pointer: inout Int) throws {
-            let size = MemoryLayout<Self>.size
+            let size = MemoryLayout<UInt32>.size
             guard buffer.count >= size else {
                 throw BufferLayoutError.bytesLengthIsNotValid
             }
@@ -410,8 +410,8 @@ public enum SystemInstructionLayout {
         }
 
         public func serialize() throws -> Data {
-            var int = self.rawValue
-            return Data(bytes: &int, count: MemoryLayout<Self>.size)
+            var int = rawValue
+            return Data(bytes: &int, count: MemoryLayout<UInt32>.size)
         }
     }
 

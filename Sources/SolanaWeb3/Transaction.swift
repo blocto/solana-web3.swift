@@ -141,9 +141,9 @@ public struct Transaction: Equatable {
         let signatureCount = Shortvec.decodeLength(data: &data)
         var signatures = [Data]()
         for index in 0..<signatureCount {
-            let startIndex = index * signatureLength
+            let startIndex = data.startIndex + index * signatureLength
             let endIndex = startIndex + signatureLength
-            if endIndex < data.count {
+            if endIndex < data.endIndex {
                 let signature = data[startIndex..<endIndex]
                 signatures.append(signature)
             } else {
@@ -151,8 +151,8 @@ public struct Transaction: Equatable {
             }
         }
 
-        let startIndex = signatureCount * signatureLength
-        if startIndex < data.count {
+        let startIndex = data.startIndex + signatureCount * signatureLength
+        if startIndex < data.endIndex {
             data = data[startIndex...]
         } else {
             throw Error.signatureHasInvalidLength

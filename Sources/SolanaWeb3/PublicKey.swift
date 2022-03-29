@@ -10,6 +10,9 @@ import CryptoSwift
 
 public struct PublicKey {
 
+    /// Default public key value. (All zeros)
+    public static let `default` = try! PublicKey("11111111111111111111111111111111")
+
     static let numberOfBytes = 32
 
     public let bytes: [UInt8]
