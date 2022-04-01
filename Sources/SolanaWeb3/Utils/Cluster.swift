@@ -23,9 +23,14 @@ public enum Cluster {
         }
     }
 
-    public func clusterApiURL(cluster: Cluster = .devnet, tls: Bool = true) -> URL {
+    public func clusterApiURL(tls: Bool = true) -> URL {
         let schema = tls ? "https" : "http"
-        let urlString = schema + "://" + cluster.endpoint
+        let urlString = schema + "://" + endpoint
         return URL(string: urlString)!
     }
+
+    public static func clusterApiURL(cluster: Cluster = .devnet, tls: Bool = true) -> URL {
+        cluster.clusterApiURL(tls: tls)
+    }
+
 }

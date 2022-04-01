@@ -7,9 +7,9 @@
 
 import Foundation
 
-enum Shortvec {
+public enum Shortvec {
 
-    static func decodeLength(data: inout Data) -> Int {
+    public static func decodeLength(data: inout Data) -> Int {
         var len = 0
         var size = 0
         while true {
@@ -23,11 +23,11 @@ enum Shortvec {
         return len
     }
 
-    static func encodeLength(_ len: Int) -> Data {
+    public static func encodeLength(_ len: Int) -> Data {
         encodeLength(UInt(len))
     }
 
-    static func encodeLength(_ len: UInt) -> Data {
+    public static func encodeLength(_ len: UInt) -> Data {
         var remLen = len
         var bytes = Data()
         while true {

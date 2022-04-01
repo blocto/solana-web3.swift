@@ -48,10 +48,14 @@ public struct Keypair {
     /// - Parameters:
     ///   - secretKey: secret key data
     ///   - options: skip secret key validation
-    init(secretKey: Data, options: InitOption? = nil) throws {
+    public init(secretKey: Data, options: InitOption = InitOption()) throws {
         let (publicKey, secretKey) = try NaclSign.KeyPair.keyPair(fromSecretKey: secretKey)
-        if let options = options, options.skipValidation == false {
-            // TODO: not finished
+        if options.skipValidation == false {
+            let signData = "SolanaWeb3-validation-v1".data(using: .utf8) ?? Data()
+            let signature = try NaclSign.signDetached(message: signData, secretKey: secretKey)
+            if try NaclSign.signDetachedVerify(message: signature, sig: signature, publicKey: publicKey) == false {
+                throw Error.providedSecretKeyIsInvalid
+            }
         }
         self.keypair = Ed25519Keypair(publicKey: publicKey, secretKey: secretKey)
     }
@@ -83,5 +87,17 @@ public extension Keypair {
 
     struct InitOption {
         let skipValidation: Bool
+
+        public init(skipValidation: Bool = false) {
+            self.skipValidation = skipValidation
+        }
+    }
+}
+
+// MARK: - Error
+public extension Keypair {
+
+    enum Error: Swift.Error {
+        case providedSecretKeyIsInvalid
     }
 }
