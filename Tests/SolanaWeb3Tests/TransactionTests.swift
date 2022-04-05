@@ -9,6 +9,8 @@ import XCTest
 import SolanaWeb3
 import CryptoSwift
 import TweetNacl
+import Alamofire
+import Mocker
 
 final class TransactionTests: XCTestCase {
 
@@ -119,28 +121,40 @@ final class TransactionTests: XCTestCase {
         XCTAssertEqual(message.header.numReadonlyUnsignedAccounts, 1)
     }
 
-    // TODO: not finished
-//    it('getEstimatedFee', async () => {
-//    const connection = new Connection('https://api.testnet.solana.com');
-//    const accountFrom = Keypair.generate();
-//    const accountTo = Keypair.generate();
-//
-//    const {blockhash} = await helpers.latestBlockhash({connection});
-//
-//    const transaction = new Transaction({
-//      feePayer: accountFrom.publicKey,
-//      recentBlockhash: blockhash,
-//    }).add(
-//      SystemProgram.transfer({
-//        fromPubkey: accountFrom.publicKey,
-//        toPubkey: accountTo.publicKey,
-//        lamports: 10,
-//      }),
-//    );
-//
-//    const fee = await transaction.getEstimatedFee(connection);
-//    expect(fee).to.eq(5000);
-//  });
+    func testGetEstimatedFee() throws {
+        // Mock api response
+        let configuration = URLSessionConfiguration.af.default
+        configuration.protocolClasses = [MockingURLProtocol.self] + (configuration.protocolClasses ?? [])
+        let session = Session(configuration: configuration)
+
+        let response = RpcResponseAndContext<UInt64>(context: Context(slot: 0), value: 5000)
+        let endpoint = URL(string: "https://api.testnet.solana.com")!
+        let mockedData = try JSONEncoder().encode(MockJsonRPCResponse(result: response))
+        let mock = Mock(url: endpoint, dataType: .json, statusCode: 200, data: [.post: mockedData])
+        mock.register()
+
+        let connection = Connection(endpointURL: endpoint, session: session)
+        let accountFrom = try Keypair()
+        let accountTo = try Keypair()
+
+        var transaction = Transaction(
+            recentBlockhash: "Blockhash",
+            feePayer: try accountFrom.publicKey)
+        transaction.add(try SystemProgram.transfer(
+            fromPublicKey: try accountFrom.publicKey,
+            toPublicKey: try accountTo.publicKey,
+            lamports: 10))
+
+        var result: Result<UInt64, Error>?
+        let exp = expectation(description: "wait for api response")
+        transaction.getEstimatedFee(connection: connection) { localResult in
+            debugPrint("Scott \(localResult)")
+            result = localResult
+            exp.fulfill()
+        }
+        wait(for: [exp], timeout: 0.1)
+        XCTAssertEqual(try result?.get(), 5000)
+    }
 
     func testPartialSign() throws {
         let account1 = try Keypair()

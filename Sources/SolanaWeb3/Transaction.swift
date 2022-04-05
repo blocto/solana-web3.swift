@@ -381,10 +381,21 @@ public struct Transaction: Equatable {
     }
 
     /// Get the estimated fee associated with a transaction
-    // TODO: not finished
-//    async getEstimatedFee(connection: Connection): Promise<number> {
-//      return (await connection.getFeeForMessage(this.compileMessage())).value;
-//    }
+    public mutating func getEstimatedFee(connection: Connection, completion: @escaping (Result<UInt64, Swift.Error>) -> Void) {
+        do {
+            let message = try compile()
+            connection.getFeeForMessage(message: message) { result in
+                switch result {
+                case let .success(response):
+                    completion(.success(response.value))
+                case let .failure(error):
+                    completion(.failure(error))
+                }
+            }
+        } catch {
+            completion(.failure(error))
+        }
+    }
 
     /// Specify the public keys which will be used to sign the Transaction.
     /// The first signer will be used as the transaction fee payer account.

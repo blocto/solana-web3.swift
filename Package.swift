@@ -19,7 +19,8 @@ let package = Package(
         .package(url: "https://github.com/krzyzanowskim/CryptoSwift.git", .upToNextMajor(from: "1.4.3")),
         .package(name: "TweetNacl", url: "https://github.com/bitmark-inc/tweetnacl-swiftwrap.git", from: "1.1.0"),
         .package(url: "https://github.com/wickwirew/Runtime.git", from: "2.2.2"),
-        .package(url: "https://github.com/Alamofire/Alamofire.git", .upToNextMajor(from: "5.5.0"))
+        .package(url: "https://github.com/Alamofire/Alamofire.git", .upToNextMajor(from: "5.5.0")),
+        .package(url: "https://github.com/WeTransfer/Mocker.git", .upToNextMajor(from: "2.3.0"))
     ],
     targets: [
         .target(
@@ -28,7 +29,7 @@ let package = Package(
         ),
         .testTarget(
             name: "SolanaWeb3Tests",
-            dependencies: ["SolanaWeb3"]
+            dependencies: ["SolanaWeb3", "Mocker"]
         ),
     ],
     swiftLanguageVersions: [.v5]

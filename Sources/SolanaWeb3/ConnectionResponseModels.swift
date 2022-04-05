@@ -25,21 +25,30 @@ public struct ResponseErrorData: Decodable {
 }
 
 /// RPC Response with extra contextual information
-public struct RpcResponseAndContext<T: Decodable>: Decodable {
+public struct RpcResponseAndContext<T: Codable>: Codable {
     /// response context
     public let context: Context
 
     /// response value
     public let value: T
+
+    public init(context: Context, value: T) {
+        self.context = context
+        self.value = value
+    }
 }
 
 /// Extra contextual information for RPC responses
-public struct Context: Decodable {
+public struct Context: Codable {
     public let slot: UInt64
+
+    public init(slot: UInt64) {
+        self.slot = slot
+    }
 }
 
 /// Supply
-public struct Supply: Decodable {
+public struct Supply: Codable {
     /// Total supply in lamports
     public let total: UInt64
 
@@ -70,7 +79,7 @@ public struct TokenAmount: Codable, Hashable {
 }
 
 /// Information describing an account
-public struct AccountInfo<T: Decodable>: Decodable {
+public struct AccountInfo<T: Codable>: Codable {
     /// `true` if this account's data contains a loaded program
     public let executable: Bool
 
@@ -87,7 +96,7 @@ public struct AccountInfo<T: Decodable>: Decodable {
     public let rentEpoch: UInt64?
 }
 
-public struct KeyAccountInfo<T: Decodable>: Decodable {
+public struct KeyAccountInfo<T: Codable>: Codable {
     public let publicKey: PublicKey
     public let account: AccountInfo<T>
 

@@ -347,7 +347,21 @@ public class Connection {
     // TODO: public func getRecentPerformanceSamples
 
     /// Fetch the fee for a message from the cluster, return with context
-    // TODO: public func getFeeForMessage
+    public func getFeeForMessage(
+        message: Message,
+        commitment: Commitment? = nil,
+        completion: @escaping (Result<RpcResponseAndContext<UInt64>, Error>) -> Void
+    ) {
+        let wireMessage = message.serialize().base64EncodedString()
+        var args: [Encodable] = [wireMessage]
+        if let config = RpcRequestConfiguration(commitment: commitment ?? self.commitment) {
+            args.append(config)
+        }
+        sendRpcRequest(
+            method: "getFeeForMessage",
+            args: args,
+            completion: completion)
+    }
 
     /// Fetch the latest blockhash from the cluster
     // TODO: public func getLatestBlockhash
