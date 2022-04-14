@@ -7,6 +7,6 @@
 
 import Foundation
 
-public struct FeeCalculator: BufferLayout {
+public struct FeeCalculator: BufferLayout, Codable {
     public let lamportsPerSignature: UInt64
 }

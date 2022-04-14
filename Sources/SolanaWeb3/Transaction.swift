@@ -8,6 +8,11 @@
 import Foundation
 import TweetNacl
 
+/**
+ * Transaction signature as base-58 encoded string
+ */
+public typealias TransactionSignature = String
+
 /// Default (empty) signature
 ///
 /// Signatures are 64 bytes in length
@@ -165,7 +170,7 @@ public struct Transaction: Equatable {
     }
 
     /// Populate Transaction object from message and signatures
-    public init(message: Message, signatures: [String]) {
+    public init(message: Message, signatures: [String] = []) {
         self.recentBlockhash = message.recentBlockhash
         if message.header.numRequiredSignatures > 0 {
             self.feePayer = message.accountKeys.first
@@ -355,7 +360,7 @@ public struct Transaction: Equatable {
         )
     }
 
-    private mutating func compile() throws -> Message {
+    mutating func compile() throws -> Message {
         let message = try compileMessage()
         let signedKeys = message.accountKeys[0..<Int(message.header.numRequiredSignatures)]
         if signatures.count == signedKeys.count {
@@ -573,7 +578,7 @@ public struct Transaction: Equatable {
         return try serialize(signData: signData)
     }
 
-    private func serialize(signData: Data) throws -> Data {
+    func serialize(signData: Data) throws -> Data {
         let signatureCount = Shortvec.encodeLength(signatures.count)
         let transactionLength = signatureCount.count + signatures.count * signatureLength + signData.count
         var wireTransaction = Data(capacity: transactionLength)

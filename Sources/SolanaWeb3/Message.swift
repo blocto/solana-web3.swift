@@ -157,6 +157,36 @@ public struct Message: Equatable {
     }
 }
 
+// MARK: - Codable
+extension Message: Codable {
+
+    enum CodingKeys: String, CodingKey {
+        case header
+        case accountKeys
+        case recentBlockhash
+        case instructions
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(header, forKey: .header)
+        try container.encode(accountKeys, forKey: .accountKeys)
+        try container.encode(recentBlockhash, forKey: .recentBlockhash)
+        try container.encode(instructions, forKey: .instructions)
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        self.header = try values.decode(MessageHeader.self, forKey: .header)
+        self.accountKeys = try values.decode([PublicKey].self, forKey: .accountKeys)
+        self.recentBlockhash = try values.decode(Blockhash.self, forKey: .recentBlockhash)
+        self.instructions = try values.decode([CompiledInstruction].self, forKey: .instructions)
+        self.instructions.forEach { instruction in
+            indexToProgramIds[instruction.programIdIndex] = self.accountKeys[Int(instruction.programIdIndex)]
+        }
+    }
+}
+
 // MARK: - Error
 public extension Message {
 
@@ -165,8 +195,10 @@ public extension Message {
     }
 }
 
+// MARK: -
+
 /// The message header, identifying signed and read-only account
-public struct MessageHeader: Equatable, Decodable {
+public struct MessageHeader: Equatable, Codable {
 
     /// The number of signatures required for this message to be considered valid. The
     /// signatures must match the first `numRequiredSignatures` of `accountKeys`.
@@ -194,7 +226,7 @@ public struct MessageHeader: Equatable, Decodable {
 }
 
 /// An instruction to execute by a program
-public struct CompiledInstruction: Equatable {
+public struct CompiledInstruction: Equatable, Codable {
 
     /// Index into the transaction keys array indicating the program account that executes this instruction
     public let programIdIndex: UInt8
