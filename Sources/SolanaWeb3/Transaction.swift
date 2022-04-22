@@ -508,6 +508,12 @@ public struct Transaction: Equatable {
         let message = try compile()
         try partialSign(message: message, signers: signers)
     }
+    
+    public mutating func partialSign(signers: [Account]) throws {
+        try partialSign(signers: try signers.map {
+            Signer(publicKey: try $0.publicKey, secretKey: $0.secretKey)
+        })
+    }
 
     public mutating func partialSign(signers: [Keypair]) throws {
         try partialSign(signers: try signers.map {
