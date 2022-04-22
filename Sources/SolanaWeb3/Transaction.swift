@@ -474,6 +474,10 @@ public struct Transaction: Equatable {
         try self.sign(signers.map { $0.keypair })
     }
 
+    public mutating func sign(_ accounts: [Account]) throws {
+        try sign(accounts.map { try Keypair(secretKey: $0.secretKey) })
+    }
+
     public mutating func sign(_ signer: Keypair) throws {
         try self.sign([signer.keypair])
     }
