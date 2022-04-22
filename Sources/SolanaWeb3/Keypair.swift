@@ -53,7 +53,7 @@ public struct Keypair {
         if options.skipValidation == false {
             let signData = "SolanaWeb3-validation-v1".data(using: .utf8) ?? Data()
             let signature = try NaclSign.signDetached(message: signData, secretKey: secretKey)
-            if try NaclSign.signDetachedVerify(message: signature, sig: signature, publicKey: publicKey) == false {
+            if try NaclSign.signDetachedVerify(message: signData, sig: signature, publicKey: publicKey) == false {
                 throw Error.providedSecretKeyIsInvalid
             }
         }
