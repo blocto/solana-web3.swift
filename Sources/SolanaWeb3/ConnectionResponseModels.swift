@@ -27,7 +27,7 @@ public struct ResponseErrorData: Decodable {
 }
 
 /// RPC Response with extra contextual information
-public struct RpcResponseAndContext<T: Codable>: Codable {
+public struct RpcResponseAndContext<T: Decodable>: Decodable {
     /// response context
     public let context: Context
 
@@ -41,7 +41,7 @@ public struct RpcResponseAndContext<T: Codable>: Codable {
 }
 
 /// Extra contextual information for RPC responses
-public struct Context: Codable {
+public struct Context: Decodable {
     public let slot: UInt64
 
     public init(slot: UInt64) {
@@ -81,7 +81,7 @@ public struct TokenAmount: Codable, Hashable {
 }
 
 /// Information describing an account
-public struct AccountInfo<T: Codable>: Codable {
+public struct AccountInfo<T: BufferLayoutDeserializable>: Decodable {
     /// `true` if this account's data contains a loaded program
     public let executable: Bool
 
@@ -96,9 +96,29 @@ public struct AccountInfo<T: Codable>: Codable {
 
     /// Optional rent epoch info for account
     public let rentEpoch: UInt64?
+
+    enum CodingKeys: String, CodingKey {
+        case executable
+        case owner
+        case lamports
+        case data
+        case rentEpoch
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        self.executable = try values.decode(Bool.self, forKey: .executable)
+        self.owner = try values.decode(PublicKey.self, forKey: .owner)
+        self.lamports = try values.decode(UInt64.self, forKey: .lamports)
+        let texts = try values.decode([String].self, forKey: .data)
+        let data = Data(base64Encoded: texts[0]) ?? Data()
+        var index = 0
+        self.data = try T(buffer: data, pointer: &index)
+        self.rentEpoch = try values.decodeIfPresent(UInt64.self, forKey: .rentEpoch)
+    }
 }
 
-public struct KeyAccountInfoPair<T: Codable>: Codable {
+public struct KeyAccountInfoPair<T: BufferLayoutDeserializable>: Decodable {
     public let publicKey: PublicKey
     public let account: AccountInfo<T>
 
@@ -106,12 +126,6 @@ public struct KeyAccountInfoPair<T: Codable>: Codable {
         case publicKey = "pubkey"
         case account
     }
-}
-
-public struct ParsedAccountData<T: Codable>: Codable {
-    public let program: String
-    public let parsed: T
-    public let space: UInt64
 }
 
 public struct AccountBalancePair: Codable {

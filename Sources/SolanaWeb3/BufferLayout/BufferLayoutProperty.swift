@@ -95,3 +95,15 @@ extension Array where Element == UInt8 {
         return value
     }
 }
+
+extension Data: BufferLayoutProperty {
+
+    public func serialize() throws -> Data { self }
+
+    public init(buffer: Data, pointer: inout Int) throws {
+        let size = buffer.count - pointer
+        let data = Array(buffer[pointer..<pointer+size])
+        self = Data(data)
+        pointer += count
+    }
+}

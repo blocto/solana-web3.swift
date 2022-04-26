@@ -127,10 +127,12 @@ final class TransactionTests: XCTestCase {
         configuration.protocolClasses = [MockingURLProtocol.self] + (configuration.protocolClasses ?? [])
         let session = Session(configuration: configuration)
 
-        let response = RpcResponseAndContext<UInt64>(context: Context(slot: 0), value: 5000)
         let endpoint = URL(string: "https://api.testnet.solana.com")!
-        let mockedData = try JSONEncoder().encode(MockJsonRPCResponse(result: response))
-        let mock = Mock(url: endpoint, dataType: .json, statusCode: 200, data: [.post: mockedData])
+        let response = """
+{"jsonrpc":"2.0","result":{"context":{"slot":0},"value":5000},"id":"91E42C42-00D1-4FF2-80ED-2609E6890961"}
+"""
+        let data = response.data(using: .utf8)!
+        let mock = Mock(url: endpoint, dataType: .json, statusCode: 200, data: [.post: data])
         mock.register()
 
         let connection = Connection(endpointURL: endpoint, session: session)

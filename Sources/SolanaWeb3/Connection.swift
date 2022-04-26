@@ -251,12 +251,12 @@ public class Connection {
             completion: completion)
     }
 
-    /// Fetch parsed token accounts owned by the specified account
-    public func getParsedTokenAccountsByOwner(
+    /// Fetch all the token accounts owned by the specified account
+    public func getTokenAccountsByOwner<T: BufferLayoutDeserializable>(
         ownerAddress: PublicKey,
         filter: TokenAccountsFilter,
         commitment: Commitment? = nil,
-        completion: @escaping (Result<RpcResponseAndContext<[KeyAccountInfoPair<ParsedAccountData<Data>>]>, Error>) -> Void
+        completion: @escaping (Result<RpcResponseAndContext<KeyAccountInfoPair<T>>, Error>) -> Void
     ) {
         var args: [Encodable] = [ownerAddress.base58]
         switch filter {
@@ -265,7 +265,7 @@ public class Connection {
         case .programId(let publicKey):
             args.append(["programId": publicKey.base58])
         }
-        if let config = RpcRequestConfiguration(commitment: commitment ?? self.commitment, encoding: .jsonParsed) {
+        if let config = RpcRequestConfiguration(commitment: commitment ?? self.commitment, encoding: .base64) {
             args.append(config)
         }
         sendRpcRequest(
@@ -329,14 +329,14 @@ public class Connection {
             completion: completion)
     }
 
-    /// Fetch parsed account info for the specified public key
-    public func getParsedAccountInfo(
+    /// Fetch all the account info for the specified public key, return with context
+    public func getAccountInfoAndContext<T: BufferLayoutDeserializable>(
         publicKey: PublicKey,
         commitment: Commitment? = nil,
-        completion: @escaping (Result<RpcResponseAndContext<AccountInfo<ParsedAccountData<Data>>?>, Error>) -> Void
+        completion: @escaping (Result<RpcResponseAndContext<AccountInfo<T>?>, Error>) -> Void
     ) {
         var args: [Encodable] = [publicKey.base58]
-        if let config = RpcRequestConfiguration(commitment: commitment ?? self.commitment, encoding: .jsonParsed) {
+        if let config = RpcRequestConfiguration(commitment: commitment ?? self.commitment, encoding: .base64) {
             args.append(config)
         }
         sendRpcRequest(
@@ -345,12 +345,22 @@ public class Connection {
             completion: completion)
     }
 
-
     /// Fetch all the account info for the specified public key
     public func getAccountInfo(
         publicKey: PublicKey,
         commitment: Commitment? = nil,
         completion: @escaping (Result<AccountInfo<Data>?, Error>) -> Void
+    ) {
+        getAccountInfoAndContext(publicKey: publicKey, commitment: commitment) { result in
+            completion(result.map { $0.value })
+        }
+    }
+
+    /// Fetch all the account info for the specified public key
+    public func getAccountInfo<T: BufferLayoutDeserializable>(
+        publicKey: PublicKey,
+        commitment: Commitment? = nil,
+        completion: @escaping (Result<AccountInfo<T>?, Error>) -> Void
     ) {
         getAccountInfoAndContext(publicKey: publicKey, commitment: commitment) { result in
             completion(result.map { $0.value })
@@ -436,22 +446,27 @@ public class Connection {
             completion: completion)
     }
 
-    /// Fetch and parse all the accounts owned by the specified program id
-    ///
-    /// - Parameters:
-    ///  - commitment: commitment level
-    ///  - filters: array of filters to apply to accounts
-    public func getParsedProgramAccounts(
+    /// Fetch all the accounts owned by the specified program id
+    public func getProgramAccounts<T: BufferLayoutDeserializable>(
         programId: PublicKey,
         commitment: Commitment? = nil,
+        encoding: RpcRequestEncoding? = nil,
+        dataSlice: DataSlice? = nil,
         filters: [GetProgramAccountsFilter]? = nil,
-        completion: @escaping (Result<[KeyAccountInfoPair<ParsedAccountData<Data>>], Error>) -> Void
+        completion: @escaping (Result<[KeyAccountInfoPair<T>], Error>) -> Void
     ) {
         var args: [Encodable] = [programId.base58]
+        var extra: [String: Encodable] = [:]
+        if let dataSlice = dataSlice {
+            extra["dataSlice"] = dataSlice
+        }
+        if let filters = filters {
+            extra["filters"] = filters
+        }
         if let config = RpcRequestConfiguration(
             commitment: commitment ?? self.commitment,
-            encoding: .jsonParsed,
-            extra: filters != nil ? ["filters": filters] : nil
+            encoding: encoding ?? .base64,
+            extra: extra
         ) {
             args.append(config)
         }
