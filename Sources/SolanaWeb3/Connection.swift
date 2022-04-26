@@ -252,27 +252,27 @@ public class Connection {
     }
 
     /// Fetch parsed token accounts owned by the specified account
-    public func getParsedTokenAccountsByOwner(
-        ownerAddress: PublicKey,
-        filter: TokenAccountsFilter,
-        commitment: Commitment? = nil,
-        completion: @escaping (Result<RpcResponseAndContext<[KeyAccountInfoPair<ParsedAccountData<Data>>]>, Error>) -> Void
-    ) {
-        var args: [Encodable] = [ownerAddress.base58]
-        switch filter {
-        case .mint(let publicKey):
-            args.append(["mint": publicKey.base58])
-        case .programId(let publicKey):
-            args.append(["programId": publicKey.base58])
-        }
-        if let config = RpcRequestConfiguration(commitment: commitment ?? self.commitment, encoding: .jsonParsed) {
-            args.append(config)
-        }
-        sendRpcRequest(
-            method: "getTokenAccountsByOwner",
-            args: args,
-            completion: completion)
-    }
+//    public func getParsedTokenAccountsByOwner(
+//        ownerAddress: PublicKey,
+//        filter: TokenAccountsFilter,
+//        commitment: Commitment? = nil,
+//        completion: @escaping (Result<RpcResponseAndContext<[KeyAccountInfoPair<ParsedAccountData<Data>>]>, Error>) -> Void
+//    ) {
+//        var args: [Encodable] = [ownerAddress.base58]
+//        switch filter {
+//        case .mint(let publicKey):
+//            args.append(["mint": publicKey.base58])
+//        case .programId(let publicKey):
+//            args.append(["programId": publicKey.base58])
+//        }
+//        if let config = RpcRequestConfiguration(commitment: commitment ?? self.commitment, encoding: .jsonParsed) {
+//            args.append(config)
+//        }
+//        sendRpcRequest(
+//            method: "getTokenAccountsByOwner",
+//            args: args,
+//            completion: completion)
+//    }
 
     /// Fetch the 20 largest accounts with their current balances
     ///
@@ -330,21 +330,20 @@ public class Connection {
     }
 
     /// Fetch parsed account info for the specified public key
-    public func getParsedAccountInfo(
-        publicKey: PublicKey,
-        commitment: Commitment? = nil,
-        completion: @escaping (Result<RpcResponseAndContext<AccountInfo<ParsedAccountData<Data>>?>, Error>) -> Void
-    ) {
-        var args: [Encodable] = [publicKey.base58]
-        if let config = RpcRequestConfiguration(commitment: commitment ?? self.commitment, encoding: .jsonParsed) {
-            args.append(config)
-        }
-        sendRpcRequest(
-            method: "getAccountInfo",
-            args: args,
-            completion: completion)
-    }
-
+//    public func getParsedAccountInfo(
+//        publicKey: PublicKey,
+//        commitment: Commitment? = nil,
+//        completion: @escaping (Result<RpcResponseAndContext<AccountInfo<ParsedAccountData<Data>>?>, Error>) -> Void
+//    ) {
+//        var args: [Encodable] = [publicKey.base58]
+//        if let config = RpcRequestConfiguration(commitment: commitment ?? self.commitment, encoding: .jsonParsed) {
+//            args.append(config)
+//        }
+//        sendRpcRequest(
+//            method: "getAccountInfo",
+//            args: args,
+//            completion: completion)
+//    }
 
     /// Fetch all the account info for the specified public key
     public func getAccountInfo(
@@ -441,25 +440,25 @@ public class Connection {
     /// - Parameters:
     ///  - commitment: commitment level
     ///  - filters: array of filters to apply to accounts
-    public func getParsedProgramAccounts(
-        programId: PublicKey,
-        commitment: Commitment? = nil,
-        filters: [GetProgramAccountsFilter]? = nil,
-        completion: @escaping (Result<[KeyAccountInfoPair<ParsedAccountData<Data>>], Error>) -> Void
-    ) {
-        var args: [Encodable] = [programId.base58]
-        if let config = RpcRequestConfiguration(
-            commitment: commitment ?? self.commitment,
-            encoding: .jsonParsed,
-            extra: filters != nil ? ["filters": filters] : nil
-        ) {
-            args.append(config)
-        }
-        sendRpcRequest(
-            method: "getProgramAccounts",
-            args: args,
-            completion: completion)
-    }
+//    public func getParsedProgramAccounts(
+//        programId: PublicKey,
+//        commitment: Commitment? = nil,
+//        filters: [GetProgramAccountsFilter]? = nil,
+//        completion: @escaping (Result<[KeyAccountInfoPair<ParsedAccountData<Data>>], Error>) -> Void
+//    ) {
+//        var args: [Encodable] = [programId.base58]
+//        if let config = RpcRequestConfiguration(
+//            commitment: commitment ?? self.commitment,
+//            encoding: .jsonParsed,
+//            extra: filters != nil ? ["filters": filters] : nil
+//        ) {
+//            args.append(config)
+//        }
+//        sendRpcRequest(
+//            method: "getProgramAccounts",
+//            args: args,
+//            completion: completion)
+//    }
 
     /// Confirm the transaction identified by the specified signature.
     /// public func confirmTransaction
