@@ -24,22 +24,22 @@ final class TransactionTests: XCTestCase {
         var transaction = Transaction(recentBlockhash: recentBlockhash)
         transaction.add(
             keys: [
-                AccountMeta(publicKey: try account3.publicKey, isSigner: true, isWritable: false),
-                AccountMeta(publicKey: try payer.publicKey, isSigner: true, isWritable: true),
-                AccountMeta(publicKey: try account2.publicKey, isSigner: true, isWritable: true)
+                AccountMeta(publicKey: account3.publicKey, isSigner: true, isWritable: false),
+                AccountMeta(publicKey: payer.publicKey, isSigner: true, isWritable: true),
+                AccountMeta(publicKey: account2.publicKey, isSigner: true, isWritable: true)
             ],
             programId: programId)
 
         try transaction.setSigners([
-            try payer.publicKey,
-            try account2.publicKey,
-            try account3.publicKey
+            payer.publicKey,
+            account2.publicKey,
+            account3.publicKey
         ])
 
         let message = try transaction.compileMessage()
-        XCTAssertEqual(message.accountKeys[0], try payer.publicKey)
-        XCTAssertEqual(message.accountKeys[1], try account2.publicKey)
-        XCTAssertEqual(message.accountKeys[2], try account3.publicKey)
+        XCTAssertEqual(message.accountKeys[0], payer.publicKey)
+        XCTAssertEqual(message.accountKeys[1], account2.publicKey)
+        XCTAssertEqual(message.accountKeys[2], account3.publicKey)
     }
 
     func testCompileMessageThatPayerIsFirstAccountMeta() throws {
@@ -50,16 +50,16 @@ final class TransactionTests: XCTestCase {
         var transaction = Transaction(recentBlockhash: recentBlockhash)
         transaction.add(
             keys: [
-                AccountMeta(publicKey: try other.publicKey, isSigner: true, isWritable: true),
-                AccountMeta(publicKey: try payer.publicKey, isSigner: true, isWritable: true)
+                AccountMeta(publicKey: other.publicKey, isSigner: true, isWritable: true),
+                AccountMeta(publicKey: payer.publicKey, isSigner: true, isWritable: true)
             ],
             programId: programId)
 
         try transaction.sign([payer, other])
 
         let message = try transaction.compileMessage()
-        XCTAssertEqual(message.accountKeys[0], try payer.publicKey)
-        XCTAssertEqual(message.accountKeys[1], try other.publicKey)
+        XCTAssertEqual(message.accountKeys[0], payer.publicKey)
+        XCTAssertEqual(message.accountKeys[1], other.publicKey)
         XCTAssertEqual(message.header.numRequiredSignatures, 2)
         XCTAssertEqual(message.header.numReadonlySignedAccounts, 0)
         XCTAssertEqual(message.header.numReadonlyUnsignedAccounts, 1)
@@ -84,7 +84,7 @@ final class TransactionTests: XCTestCase {
         XCTAssertEqual(thrownError as? Transaction.Error, .feePayerRequired)
 
         let randomPublicKey = try Keypair().publicKey
-        try transaction.setSigners([try payer.publicKey, randomPublicKey])
+        try transaction.setSigners([payer.publicKey, randomPublicKey])
 
         XCTAssertThrowsError(try transaction.compileMessage()) { error in
             thrownError = error
@@ -92,12 +92,12 @@ final class TransactionTests: XCTestCase {
         XCTAssertEqual(thrownError as? Transaction.Error, .unknownSigner(randomPublicKey.description))
 
         // Expect compile to succeed with implicit fee payer from signers
-        try transaction.setSigners([try payer.publicKey])
+        try transaction.setSigners([payer.publicKey])
         try transaction.compileMessage()
 
         // Expect compile to succeed with fee payer and no signers
         transaction.signatures = []
-        transaction.feePayer = try payer.publicKey
+        transaction.feePayer = payer.publicKey
         try transaction.compileMessage()
     }
 
@@ -108,14 +108,14 @@ final class TransactionTests: XCTestCase {
         var transaction = Transaction(recentBlockhash: recentBlockhash)
         transaction.add(
             keys: [
-                AccountMeta(publicKey: try payer.publicKey, isSigner: true, isWritable: false)
+                AccountMeta(publicKey: payer.publicKey, isSigner: true, isWritable: false)
             ],
             programId: programId)
 
         try transaction.sign(payer)
 
         let message = try transaction.compileMessage()
-        XCTAssertEqual(message.accountKeys[0], try payer.publicKey)
+        XCTAssertEqual(message.accountKeys[0], payer.publicKey)
         XCTAssertEqual(message.header.numRequiredSignatures, 1)
         XCTAssertEqual(message.header.numReadonlySignedAccounts, 0)
         XCTAssertEqual(message.header.numReadonlyUnsignedAccounts, 1)
@@ -123,34 +123,28 @@ final class TransactionTests: XCTestCase {
 
     func testGetEstimatedFee() throws {
         // Mock api response
-        let configuration = URLSessionConfiguration.af.default
-        configuration.protocolClasses = [MockingURLProtocol.self] + (configuration.protocolClasses ?? [])
-        let session = Session(configuration: configuration)
+        let session = Session.makeMockSession()
 
-        let endpoint = URL(string: "https://api.testnet.solana.com")!
-        let response = """
-{"jsonrpc":"2.0","result":{"context":{"slot":0},"value":5000},"id":"91E42C42-00D1-4FF2-80ED-2609E6890961"}
-"""
-        let data = response.data(using: .utf8)!
-        let mock = Mock(url: endpoint, dataType: .json, statusCode: 200, data: [.post: data])
+        let mockRPCResponse = MockRPCResponse(result: 5000, withContext: true, slot: 0)
+        let response = try JSONEncoder().encode(mockRPCResponse)
+        let mock = Mock(url: Cluster.devnet.clusterApiURL(), dataType: .json, statusCode: 200, data: [.post: response])
         mock.register()
 
-        let connection = Connection(endpointURL: endpoint, session: session)
+        let connection = Connection(cluster: .devnet, session: session)
         let accountFrom = try Keypair()
         let accountTo = try Keypair()
 
         var transaction = Transaction(
             recentBlockhash: "Blockhash",
-            feePayer: try accountFrom.publicKey)
+            feePayer: accountFrom.publicKey)
         transaction.add(try SystemProgram.transfer(
-            fromPublicKey: try accountFrom.publicKey,
-            toPublicKey: try accountTo.publicKey,
+            fromPublicKey: accountFrom.publicKey,
+            toPublicKey: accountTo.publicKey,
             lamports: 10))
 
         var result: Result<UInt64, Error>?
         let exp = expectation(description: "wait for api response")
         transaction.getEstimatedFee(connection: connection) { localResult in
-            debugPrint("Scott \(localResult)")
             result = localResult
             exp.fulfill()
         }
@@ -161,10 +155,10 @@ final class TransactionTests: XCTestCase {
     func testPartialSign() throws {
         let account1 = try Keypair()
         let account2 = try Keypair()
-        let recentBlockhash = try account1.publicKey.base58 // Fake recentBlockhash
+        let recentBlockhash = account1.publicKey.base58 // Fake recentBlockhash
         let transfer = try SystemProgram.transfer(
-            fromPublicKey: try account1.publicKey,
-            toPublicKey: try account2.publicKey,
+            fromPublicKey: account1.publicKey,
+            toPublicKey: account2.publicKey,
             lamports: 123)
 
         var transaction = Transaction(recentBlockhash: recentBlockhash)
@@ -173,7 +167,7 @@ final class TransactionTests: XCTestCase {
 
         var partialTransaction = Transaction(recentBlockhash: recentBlockhash)
         partialTransaction.add(transfer)
-        try partialTransaction.setSigners([try account1.publicKey, try account2.publicKey])
+        try partialTransaction.setSigners([account1.publicKey, account2.publicKey])
         XCTAssertNil(partialTransaction.signatures[0].signature)
         XCTAssertNil(partialTransaction.signatures[1].signature)
 
@@ -217,23 +211,23 @@ final class TransactionTests: XCTestCase {
         var transaction = Transaction(recentBlockhash: recentBlockhash)
         transaction.add(
             keys: [
-                AccountMeta(publicKey: try duplicate1.publicKey, isSigner: true, isWritable: true),
-                AccountMeta(publicKey: try payer.publicKey, isSigner: false, isWritable: true),
-                AccountMeta(publicKey: try duplicate2.publicKey, isSigner: true, isWritable: false)
+                AccountMeta(publicKey: duplicate1.publicKey, isSigner: true, isWritable: true),
+                AccountMeta(publicKey: payer.publicKey, isSigner: false, isWritable: true),
+                AccountMeta(publicKey: duplicate2.publicKey, isSigner: true, isWritable: false)
             ],
             programId: programId)
 
         try transaction.setSigners([
-            try payer.publicKey,
-            try duplicate1.publicKey,
-            try duplicate2.publicKey
+            payer.publicKey,
+            duplicate1.publicKey,
+            duplicate2.publicKey
         ])
 
         XCTAssertEqual(transaction.signatures.count, 1)
-        XCTAssertEqual(transaction.signatures[0].publicKey, try payer.publicKey)
+        XCTAssertEqual(transaction.signatures[0].publicKey, payer.publicKey)
 
         let message = try transaction.compileMessage()
-        XCTAssertEqual(message.accountKeys[0], try payer.publicKey)
+        XCTAssertEqual(message.accountKeys[0], payer.publicKey)
         XCTAssertEqual(message.header.numRequiredSignatures, 1)
         XCTAssertEqual(message.header.numReadonlySignedAccounts, 0)
         XCTAssertEqual(message.header.numReadonlyUnsignedAccounts, 1)
@@ -249,19 +243,19 @@ final class TransactionTests: XCTestCase {
         var transaction = Transaction(recentBlockhash: recentBlockhash)
         transaction.add(
             keys: [
-                AccountMeta(publicKey: try duplicate1.publicKey, isSigner: true, isWritable: true),
-                AccountMeta(publicKey: try payer.publicKey, isSigner: false, isWritable: true),
-                AccountMeta(publicKey: try duplicate2.publicKey, isSigner: true, isWritable: false)
+                AccountMeta(publicKey: duplicate1.publicKey, isSigner: true, isWritable: true),
+                AccountMeta(publicKey: payer.publicKey, isSigner: false, isWritable: true),
+                AccountMeta(publicKey: duplicate2.publicKey, isSigner: true, isWritable: false)
             ],
             programId: programId)
 
         try transaction.sign([payer, duplicate1, duplicate2])
 
         XCTAssertEqual(transaction.signatures.count, 1)
-        XCTAssertEqual(transaction.signatures[0].publicKey, try payer.publicKey)
+        XCTAssertEqual(transaction.signatures[0].publicKey, payer.publicKey)
 
         let message = try transaction.compileMessage()
-        XCTAssertEqual(message.accountKeys[0], try payer.publicKey)
+        XCTAssertEqual(message.accountKeys[0], payer.publicKey)
         XCTAssertEqual(message.header.numRequiredSignatures, 1)
         XCTAssertEqual(message.header.numReadonlySignedAccounts, 0)
         XCTAssertEqual(message.header.numReadonlyUnsignedAccounts, 1)
@@ -272,12 +266,12 @@ final class TransactionTests: XCTestCase {
         let account2 = try Keypair()
         let recentBlockhash = try Keypair().publicKey.base58
         let transfer1 = try SystemProgram.transfer(
-            fromPublicKey: try account1.publicKey,
-            toPublicKey: try account2.publicKey,
+            fromPublicKey: account1.publicKey,
+            toPublicKey: account2.publicKey,
             lamports: 123)
         let transfer2 = try SystemProgram.transfer(
-            fromPublicKey: try account2.publicKey,
-            toPublicKey: try account1.publicKey,
+            fromPublicKey: account2.publicKey,
+            toPublicKey: account1.publicKey,
             lamports: 123)
 
         var orgTransaction = Transaction(recentBlockhash: recentBlockhash)
@@ -295,14 +289,14 @@ final class TransactionTests: XCTestCase {
     func testDedupSignatures() throws {
         let account1 = try Keypair()
         let account2 = try Keypair()
-        let recentBlockhash = try account1.publicKey.base58 // Fake recentBlockhash
+        let recentBlockhash = account1.publicKey.base58 // Fake recentBlockhash
         let transfer1 = try SystemProgram.transfer(
-            fromPublicKey: try account1.publicKey,
-            toPublicKey: try account2.publicKey,
+            fromPublicKey: account1.publicKey,
+            toPublicKey: account2.publicKey,
             lamports: 123)
         let transfer2 = try SystemProgram.transfer(
-            fromPublicKey: try account1.publicKey,
-            toPublicKey: try account2.publicKey,
+            fromPublicKey: account1.publicKey,
+            toPublicKey: account2.publicKey,
             lamports: 123)
 
         var orgTransaction = Transaction(recentBlockhash: recentBlockhash)
@@ -315,17 +309,17 @@ final class TransactionTests: XCTestCase {
         let account1 = try Keypair()
         let account2 = try Keypair()
         let nonceAccount = try Keypair()
-        let nonce = try account2.publicKey.base58
+        let nonce = account2.publicKey.base58
         let nonceInfo = NonceInformation(
             nonce: nonce,
             nonceInstruction: try SystemProgram.nonceAdvance(
-                noncePublicKey: try nonceAccount.publicKey,
-                authorizedPublicKey: try account1.publicKey))
+                noncePublicKey: nonceAccount.publicKey,
+                authorizedPublicKey: account1.publicKey))
 
         var transferTransaction = Transaction(nonceInfo: nonceInfo)
         transferTransaction.add(try SystemProgram.transfer(
-            fromPublicKey: try account1.publicKey,
-            toPublicKey: try account2.publicKey,
+            fromPublicKey: account1.publicKey,
+            toPublicKey: account2.publicKey,
             lamports: 123))
         try transferTransaction.sign(account1)
 
@@ -341,9 +335,9 @@ final class TransactionTests: XCTestCase {
         let voteAccount = try Keypair()
         var stakeTransaction = Transaction(nonceInfo: nonceInfo)
         stakeTransaction.add(try StakeProgram.delegate(
-            stakePublicKey: try stakeAccount.publicKey,
-            authorizedPublicKey: try account1.publicKey,
-            votePublicKey: try voteAccount.publicKey))
+            stakePublicKey: stakeAccount.publicKey,
+            authorizedPublicKey: account1.publicKey,
+            votePublicKey: voteAccount.publicKey))
         try stakeTransaction.sign(account1)
 
         XCTAssertEqual(stakeTransaction.instructions.count, 2)
@@ -357,10 +351,10 @@ final class TransactionTests: XCTestCase {
         let recentBlockhash = "EETubP5AKHgjPAhzPAFcb8BAY1hMH639CWCFTqi3hq1k" // Arbitrary known recentBlockhash
         let recipient = try PublicKey("J3dxNj7nDRRqRRXuEMynDG57DkZK4jYRuv3Garmb1i99") // Arbitrary known public key
         let transfer = try SystemProgram.transfer(
-            fromPublicKey: try sender.publicKey,
+            fromPublicKey: sender.publicKey,
             toPublicKey: recipient,
             lamports: 49)
-        var expectedTransaction = Transaction(recentBlockhash: recentBlockhash, feePayer: try sender.publicKey)
+        var expectedTransaction = Transaction(recentBlockhash: recentBlockhash, feePayer: sender.publicKey)
         expectedTransaction.add(transfer)
         try expectedTransaction.sign(sender)
 
@@ -413,7 +407,7 @@ final class TransactionTests: XCTestCase {
         let recentBlockhash = "EETubP5AKHgjPAhzPAFcb8BAY1hMH639CWCFTqi3hq1k" // Arbitrary known recentBlockhash
         let recipient = try PublicKey("J3dxNj7nDRRqRRXuEMynDG57DkZK4jYRuv3Garmb1i99") // Arbitrary known public key
         let transfer = try SystemProgram.transfer(
-            fromPublicKey: try sender.publicKey,
+            fromPublicKey: sender.publicKey,
             toPublicKey: recipient,
             lamports: 49)
         var expectedTransaction = Transaction(recentBlockhash: recentBlockhash)
@@ -432,7 +426,7 @@ final class TransactionTests: XCTestCase {
             XCTAssertEqual(error as? Transaction.Error, .feePayerRequired)
         }
 
-        expectedTransaction.feePayer = try sender.publicKey
+        expectedTransaction.feePayer = sender.publicKey
 
         // Transactions with missing signatures will fail sigverify.
         XCTAssertThrowsError(try expectedTransaction.serialize()) { error in
@@ -446,7 +440,7 @@ final class TransactionTests: XCTestCase {
         try expectedTransaction.serializeMessage()
 
         expectedTransaction.feePayer = nil
-        try expectedTransaction.setSigners([try sender.publicKey])
+        try expectedTransaction.setSigners([sender.publicKey])
         XCTAssertEqual(expectedTransaction.signatures.count, 1)
 
         // Transactions with missing signatures will fail sigverify.
@@ -489,14 +483,14 @@ final class TransactionTests: XCTestCase {
         let vote = try PublicKey(4)
         var tx = try StakeProgram.delegate(
             stakePublicKey: stake,
-            authorizedPublicKey: try authority.publicKey,
+            authorizedPublicKey: authority.publicKey,
             votePublicKey: vote)
         let from = authority
         tx.recentBlockhash = Base58.encode(recentBlockhash)
-        tx.feePayer = try from.publicKey
+        tx.feePayer = from.publicKey
         let txData = try tx.serializeMessage()
         let signature = try NaclSign.signDetached(message: txData, secretKey: from.secretKey)
-        try tx.addSignature(publicKey: try from.publicKey, signature: signature)
+        try tx.addSignature(publicKey: from.publicKey, signature: signature)
         XCTAssertEqual(try tx.verifySignatures(), true)
     }
 
@@ -509,31 +503,31 @@ final class TransactionTests: XCTestCase {
 
         var t0 = Transaction(
             recentBlockhash: "HZaTsZuhN1aaz9WuuimCFMyH7wJ5xiyMUHFCnZSMyguH",
-            feePayer: try signer.publicKey)
+            feePayer: signer.publicKey)
         t0.add(TransactionInstruction(
             keys: [
-                AccountMeta(publicKey: try signer.publicKey, isSigner: true, isWritable: true),
-                AccountMeta(publicKey: try acc0Writable.publicKey, isSigner: false, isWritable: true)
+                AccountMeta(publicKey: signer.publicKey, isSigner: true, isWritable: true),
+                AccountMeta(publicKey: acc0Writable.publicKey, isSigner: false, isWritable: true)
             ],
-            programId: try programId.publicKey))
+            programId: programId.publicKey))
         t0.add(TransactionInstruction(
             keys: [
-                AccountMeta(publicKey: try acc1Writable.publicKey, isSigner: false, isWritable: false)
+                AccountMeta(publicKey: acc1Writable.publicKey, isSigner: false, isWritable: false)
             ],
-            programId: try programId.publicKey))
+            programId: programId.publicKey))
         t0.add(TransactionInstruction(
             keys: [
-                AccountMeta(publicKey: try acc2Writable.publicKey, isSigner: false, isWritable: true)
+                AccountMeta(publicKey: acc2Writable.publicKey, isSigner: false, isWritable: true)
             ],
-            programId: try programId.publicKey))
+            programId: programId.publicKey))
         t0.add(TransactionInstruction(
             keys: [
-                AccountMeta(publicKey: try signer.publicKey, isSigner: true, isWritable: true),
-                AccountMeta(publicKey: try acc0Writable.publicKey, isSigner: false, isWritable: false),
-                AccountMeta(publicKey: try acc2Writable.publicKey, isSigner: false, isWritable: false),
-                AccountMeta(publicKey: try acc1Writable.publicKey, isSigner: false, isWritable: true)
+                AccountMeta(publicKey: signer.publicKey, isSigner: true, isWritable: true),
+                AccountMeta(publicKey: acc0Writable.publicKey, isSigner: false, isWritable: false),
+                AccountMeta(publicKey: acc2Writable.publicKey, isSigner: false, isWritable: false),
+                AccountMeta(publicKey: acc1Writable.publicKey, isSigner: false, isWritable: true)
             ],
-            programId: try programId.publicKey))
+            programId: programId.publicKey))
         try t0.partialSign(signers: [signer])
         var t1 = try Transaction(data: try t0.serialize())
         try t1.serialize()

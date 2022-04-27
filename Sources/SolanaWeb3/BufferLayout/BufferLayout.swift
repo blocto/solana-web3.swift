@@ -1,5 +1,5 @@
 //
-//  SNSService.swift
+//  BufferLayout.swift
 //  Blocto
 //
 //  Created by Scott on 2021/11/10.
