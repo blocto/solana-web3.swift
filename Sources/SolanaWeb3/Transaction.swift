@@ -441,6 +441,22 @@ public struct Transaction: Equatable {
     /// rejected.
     ///
     /// The Transaction must be assigned a valid `recentBlockhash` before invoking this method
+    public mutating func sign(_ signer: Signer) throws {
+        try self.sign([signer])
+    }
+
+    /// Sign the Transaction with the specified signers. Multiple signatures may
+    /// be applied to a Transaction. The first signature is considered "primary"
+    /// and is used identify and confirm transactions.
+    ///
+    /// If the Transaction `feePayer` is not set, the first signer will be used
+    /// as the transaction fee payer account.
+    ///
+    /// Transaction fields should not be modified after the first call to `sign`,
+    /// as doing so may invalidate the signature and cause the Transaction to be
+    /// rejected.
+    ///
+    /// The Transaction must be assigned a valid `recentBlockhash` before invoking this method
     public mutating func sign(_ signers: [Signer]) throws {
         guard signers.count > 0 else {
             throw Error.noSigners
@@ -464,22 +480,6 @@ public struct Transaction: Equatable {
         let message = try compile()
         try partialSign(message: message, signers: uniqueSigners)
         _ = try verifySignatures(signData: message.serialize(), requireAllSignatures: true)
-    }
-
-    public mutating func sign(_ signers: [Ed25519Keypair]) throws {
-        try self.sign(try signers.map { Signer(publicKey: try PublicKey($0.publicKey), secretKey: $0.secretKey) })
-    }
-
-    public mutating func sign(_ signers: [Keypair]) throws {
-        try self.sign(signers.map { $0.keypair })
-    }
-
-    public mutating func sign(_ accounts: [Account]) throws {
-        try sign(accounts.map { try Keypair(secretKey: $0.secretKey) })
-    }
-
-    public mutating func sign(_ signer: Keypair) throws {
-        try self.sign([signer.keypair])
     }
 
     /// Partially sign a transaction with the specified accounts. All accounts must
@@ -508,18 +508,6 @@ public struct Transaction: Equatable {
         let message = try compile()
         try partialSign(message: message, signers: signers)
     }
-    
-    public mutating func partialSign(signers: [Account]) throws {
-        try partialSign(signers: try signers.map {
-            Signer(publicKey: try $0.publicKey, secretKey: $0.secretKey)
-        })
-    }
-
-    public mutating func partialSign(signers: [Keypair]) throws {
-        try partialSign(signers: try signers.map {
-            Signer(publicKey: try $0.publicKey, secretKey: $0.secretKey)
-        })
-    }
 
     private mutating func partialSign(message: Message, signers: [Signer]) throws {
         let signData = message.serialize()
@@ -527,12 +515,6 @@ public struct Transaction: Equatable {
             let signature = try NaclSign.signDetached(message: signData, secretKey: signer.secretKey)
             try _addSignature(publicKey: signer.publicKey, signature: signature)
         }
-    }
-
-    public mutating func partialSign(message: Message, signers: [Keypair]) throws {
-        try partialSign(message: message, signers: try signers.map {
-            Signer(publicKey: try $0.publicKey, secretKey: $0.secretKey)
-        })
     }
 
     /// Add an externally created signature to a transaction. The public key

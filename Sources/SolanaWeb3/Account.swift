@@ -10,26 +10,20 @@ import TweetNacl
 
 public struct Account {
 
-    private let keyPair: KeyPair
+    public let publicKey: PublicKey
 
-    public var publicKey: PublicKey {
-        get throws {
-            try PublicKey(keyPair.publicKey)
-        }
-    }
-
-    public var secretKey: Data {
-        keyPair.secretKey
-    }
+    public let secretKey: Data
 
     public init() throws {
         let (publicKey, secretKey) = try NaclSign.KeyPair.keyPair()
-        self.keyPair = KeyPair(publicKey: publicKey, secretKey: secretKey)
+        self.publicKey = try PublicKey(publicKey)
+        self.secretKey = secretKey
     }
 
     public init(secretKey: Data) throws {
         let (publicKey, secretKey) = try NaclSign.KeyPair.keyPair(fromSecretKey: secretKey)
-        self.keyPair = KeyPair(publicKey: publicKey, secretKey: secretKey)
+        self.publicKey = try PublicKey(publicKey)
+        self.secretKey = secretKey
     }
 
     public init(secretKey: [UInt8]) throws {
@@ -37,11 +31,5 @@ public struct Account {
     }
 }
 
-// MARK: - KeyPair
-extension Account {
-
-    private struct KeyPair {
-        let publicKey: Data
-        let secretKey: Data
-    }
-}
+// MARK: - Signer
+extension Account: Signer { }

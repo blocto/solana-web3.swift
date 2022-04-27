@@ -9,9 +9,9 @@ import Foundation
 import TweetNacl
 
 /// Keypair signer
-public struct Signer {
-    public let publicKey: PublicKey
-    public let secretKey: Data
+public protocol Signer {
+    var publicKey: PublicKey { get }
+    var secretKey: Data { get }
 }
 
 /// Ed25519 Keypair
@@ -21,7 +21,7 @@ public struct Ed25519Keypair {
 }
 
 /// An account keypair used for signing transactions.
-public struct Keypair {
+public struct Keypair: Signer {
 
     let keypair: Ed25519Keypair
 
@@ -37,6 +37,7 @@ public struct Keypair {
             let (publicKey, secretKey) = try NaclSign.KeyPair.keyPair()
             self.keypair = Ed25519Keypair(publicKey: publicKey, secretKey: secretKey)
         }
+        self.publicKey = try PublicKey(self.keypair.publicKey)
     }
 
     /// Create a keypair from a raw secret key byte array.
@@ -58,6 +59,7 @@ public struct Keypair {
             }
         }
         self.keypair = Ed25519Keypair(publicKey: publicKey, secretKey: secretKey)
+        self.publicKey = try PublicKey(keypair.publicKey)
     }
 
     /// Generate a keypair from a 32 byte seed.
@@ -67,14 +69,11 @@ public struct Keypair {
     public init(seed: Data) throws {
         let (publicKey, secretKey) = try NaclSign.KeyPair.keyPair(fromSeed: seed)
         self.keypair = Ed25519Keypair(publicKey: publicKey, secretKey: secretKey)
+        self.publicKey = try PublicKey(keypair.publicKey)
     }
 
     /// The public key for this keypair
-    public var publicKey: PublicKey {
-        get throws {
-            try PublicKey(keypair.publicKey)
-        }
-    }
+    public let publicKey: PublicKey
 
     /// The raw secret key for this keypair
     public var secretKey: Data {
