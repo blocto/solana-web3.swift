@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = 'SolanaWeb3'
-  s.version          = '0.0.3'
+  s.version          = '0.0.4'
   s.summary          = 'Solana web3 Swift API'
   s.description      = <<-DESC
                        The SolanaWeb3 swift library aims to provide complete coverage of Solana. The library was built on top of the Solana JSON RPC API.
